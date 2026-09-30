@@ -161,7 +161,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLo
                 <label className="form-label">Phone / WhatsApp Number *</label>
                 <input
                   type="tel"
+                  maxLength={10}
+                  minLength={10}
                   className="form-control"
+
                   placeholder="+91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}

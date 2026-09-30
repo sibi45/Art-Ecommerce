@@ -161,7 +161,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     <div id="gallery-catalog" style={{ backgroundColor: '#ffffff', paddingBottom: '90px' }}>
       
       {/* 1. Shop by Category Section (Matching Reference Image 2) */}
-      <section style={{ maxWidth: '1380px', margin: '0 auto', padding: '48px 28px 36px' }}>
+      <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '48px 28px 36px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
           <h2 style={{
             fontSize: '26px',
@@ -267,7 +267,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
 
       {/* 2. Curated Themes Grid (Dynamic Store Sections configured from Admin) */}
       {!isFiltering && sections.filter((s) => s.is_active).length > 0 && (
-        <section style={{ maxWidth: '1380px', margin: '0 auto', padding: '20px 28px 50px' }}>
+        <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '20px 28px 50px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h2 style={{
@@ -426,7 +426,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
       )}
 
       {/* 3. Product Sections (Featured, Best Sellers, etc., Matching Images 3 & 4) */}
-      <div style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px' }}>
+      <div className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px' }}>
         
         {/* If user is filtering by section, category or search, show dedicated filtered section */}
         {isFiltering ? (
@@ -519,7 +519,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                 </button>
               </div>
             ) : (
-              <div style={{
+              <div className="gallery-artwork-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                 gap: '24px',
@@ -580,7 +580,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     </span>
                   </div>
 
-                  <div style={{
+                  <div className="gallery-artwork-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                     gap: '24px',
@@ -634,7 +634,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   </span>
                 </div>
 
-                <div style={{
+                <div className="gallery-artwork-grid" style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                   gap: '24px',
@@ -655,7 +655,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
       </div>
 
       {/* 4. Brand Trust / Value Proposition Strip (Matching Reference Image 5) */}
-      <section style={{ maxWidth: '1380px', margin: '20px auto 70px', padding: '0 28px' }}>
+      <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '20px auto 70px', padding: '0 28px' }}>
         <div style={{
           backgroundColor: '#ffffff',
           border: '1px solid #f1f5f9',
@@ -770,7 +770,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
 
       {/* 5. What Our Patrons Say (Matching Reference Image 5) */}
       {testimonials.length > 0 && (
-        <section style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px 48px' }}>
+        <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px 48px' }}>
           <h2 style={{
             fontSize: '26px',
             fontWeight: 700,
@@ -782,7 +782,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           </h2>
 
           {/* Dynamic Review Cards */}
-          <div style={{
+          <div className="responsive-testimonial-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: '24px',

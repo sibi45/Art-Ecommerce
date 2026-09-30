@@ -26,9 +26,9 @@ export const PaintingDetailModal: React.FC<PaintingDetailModalProps> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content"
+        className="modal-content modal-flush"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '850px', backgroundColor: '#ffffff', borderRadius: '4px', overflow: 'hidden' }}
+        style={{ maxWidth: '850px', backgroundColor: '#ffffff', borderRadius: '8px', overflow: 'hidden' }}
       >
         {/* Close Button */}
         <button
@@ -53,15 +53,15 @@ export const PaintingDetailModal: React.FC<PaintingDetailModalProps> = ({
           <X size={18} />
         </button>
 
-        <div style={{
+        <div className="responsive-detail-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '0px',
         }}>
           {/* Artwork Full Image Display */}
           <div style={{
             backgroundColor: '#f3f2ee',
-            padding: '30px',
+            padding: '24px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -91,7 +91,7 @@ export const PaintingDetailModal: React.FC<PaintingDetailModalProps> = ({
           </div>
 
           {/* Details & Inquire CTA */}
-          <div style={{ padding: '36px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{
               fontSize: '13px',
               color: '#e53637',
@@ -179,7 +179,7 @@ export const PaintingDetailModal: React.FC<PaintingDetailModalProps> = ({
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#111111', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
                 Artwork Specifications
               </div>
-              <div style={{
+              <div className="responsive-2col-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '8px',

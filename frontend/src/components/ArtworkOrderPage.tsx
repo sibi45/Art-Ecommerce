@@ -284,8 +284,8 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
       </div>
 
       {/* 2. Main Artwork Order & Presentation Showcase */}
-      <div style={{ maxWidth: '1320px', margin: '0 auto', padding: '36px 24px 60px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)', gap: '48px', alignItems: 'start' }}>
+      <div className="responsive-padding-mobile" style={{ maxWidth: '1320px', margin: '0 auto', padding: '36px 24px 60px' }}>
+        <div className="responsive-detail-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)', gap: '48px', alignItems: 'start' }}>
           
           {/* LEFT: Master Artwork Viewer & Visualizer */}
           <div>
@@ -604,7 +604,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               );
             })()}
 
-            <div style={{
+            <div className="responsive-3col-grid" style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
               gap: '12px',
@@ -689,14 +689,27 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
             {/* Artwork Title */}
             <h1 style={{
               fontSize: '32px',
-              fontWeight: 800,
+              fontWeight: 700,
               color: '#09090b',
-              margin: '0 0 16px 0',
+              margin: '0 0 8px 0',
               lineHeight: 1.25,
               fontFamily: "'Nunito Sans', sans-serif",
             }}>
               {painting.title}
             </h1>
+
+            {/* Painting Description — from Admin Dashboard */}
+            {painting.description && (
+              <p style={{
+                fontSize: '14px',
+                color: '#4b5563',
+                lineHeight: 1.7,
+                margin: '0 0 16px 0',
+                fontWeight: 400,
+              }}>
+                {painting.description}
+              </p>
+            )}
 
             {/* Acquisition Quote Box */}
             <div style={{
@@ -747,7 +760,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
             </div>
 
             {/* Artwork Specifications Matrix */}
-            <div style={{
+            <div className="responsive-2col-grid" style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: '12px',
@@ -787,7 +800,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                     style={{
                       flex: 1,
                       padding: '16px 24px',
-                      backgroundColor: isAvailable ? '#09090b' : '#a1a1aa',
+                      backgroundColor: isAvailable ? '#e53637' : '#a1a1aa',
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: '8px',
@@ -858,11 +871,11 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
             {showOrderForm && !orderSuccess && (
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '2px solid #09090b',
+                border: '1.5px solid #fecaca',
                 borderRadius: '10px',
                 padding: '24px',
                 marginBottom: '28px',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                boxShadow: '0 8px 24px rgba(229,54,55,0.07)',
                 animation: 'fadeIn 0.25s ease',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -903,7 +916,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                       onClick={onOpenAuth}
                       style={{
                         padding: '6px 14px',
-                        backgroundColor: '#09090b',
+                        backgroundColor: '#e53637',
                         color: '#ffffff',
                         border: 'none',
                         borderRadius: '6px',
@@ -918,7 +931,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 )}
 
                 <form onSubmit={handleInstantOrder}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '12px' }}>
+                  <div className="responsive-2col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '12px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
                         Your Full Name
@@ -940,6 +953,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                       <input
                         type="tel"
                         className="form-control"
+                        minLength={10}
                         placeholder="+91 98765 43210"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
@@ -949,7 +963,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '12px' }}>
+                  <div className="responsive-2col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '12px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
                         City / Location (Optional)
@@ -1002,7 +1016,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                       style={{
                         flex: 1,
                         padding: '12px 20px',
-                        backgroundColor: '#09090b',
+                        backgroundColor: '#e53637',
                         color: '#ffffff',
                         border: 'none',
                         borderRadius: '6px',

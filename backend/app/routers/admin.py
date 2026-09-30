@@ -33,6 +33,21 @@ def toggle_user_active(
     db.refresh(target_user)
     return target_user
 
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target_user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own admin account")
+    db.delete(target_user)
+    db.commit()
+    return {"message": "User deleted successfully"}
+
 @router.get("/stats", response_model=AdminDashboardStats)
 def get_admin_stats(
     db: Session = Depends(get_db),

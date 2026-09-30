@@ -240,7 +240,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
           </div>
         ) : (
           /* Cart Content: Items Table + Summary Column */
-          <div style={{
+          <div className="responsive-cart-grid" style={{
             display: 'grid',
             gridTemplateColumns: '2fr 1.1fr',
             gap: '48px',
@@ -390,7 +390,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
               </div>
 
               {/* Value Props Row */}
-              <div style={{
+              <div className="responsive-2col-grid" style={{
                 marginTop: '40px',
                 padding: '20px',
                 backgroundColor: '#f9f9f9',
@@ -553,7 +553,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
 
                 <div className="form-group" style={{ marginBottom: '14px' }}>
                   <label className="form-label" style={{ fontSize: '12px' }}>Preferred Contact Channel</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div className="responsive-2col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <button
                       type="button"
                       onClick={() => setPreferredContact('whatsapp')}

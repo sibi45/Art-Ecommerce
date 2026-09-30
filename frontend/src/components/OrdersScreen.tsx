@@ -465,14 +465,14 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
 
                     {/* Global Standard Order Progress Stepper */}
                     {inq.status !== 'cancelled' && (
-                      <div style={{
+                      <div className="table-responsive" style={{
                         backgroundColor: '#fafaf9',
                         borderRadius: '8px',
-                        padding: '16px 20px',
+                        padding: '16px 14px',
                         marginBottom: '20px',
                         border: '1px solid #f1f5f9',
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', minWidth: '380px' }}>
                           {/* Connecting Line */}
                           <div style={{
                             position: 'absolute',
@@ -590,7 +590,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
                     )}
 
                     {/* Artwork Item Row */}
-                    <div style={{
+                    <div className="responsive-order-item" style={{
                       display: 'grid',
                       gridTemplateColumns: '90px 1fr auto',
                       gap: '20px',

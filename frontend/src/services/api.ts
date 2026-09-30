@@ -86,6 +86,20 @@ class ApiClient {
     return this.request<User>('/auth/me');
   }
 
+  async updateMe(data: Partial<User>): Promise<User> {
+    return this.request<User>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async changePassword(data: { old_password?: string; new_password: string }): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ----------------- Paintings & Categories -----------------
   async getCategories(): Promise<Category[]> {
     return this.request<Category[]>('/categories');
@@ -214,6 +228,12 @@ class ApiClient {
   async toggleUserActive(userId: number): Promise<User> {
     return this.request<User>(`/admin/users/${userId}/toggle-active`, {
       method: 'PUT',
+    });
+  }
+
+  async deleteUser(userId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/admin/users/${userId}`, {
+      method: 'DELETE',
     });
   }
 

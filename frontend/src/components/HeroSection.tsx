@@ -90,7 +90,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         color: textColor,
       }}
     >
-      <div style={{
+      <div className="responsive-hero-container" style={{
         maxWidth: '1380px',
         width: '100%',
         margin: '0 auto',
@@ -98,7 +98,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         position: 'relative',
         zIndex: 2,
       }}>
-        <div style={{
+        <div className="responsive-hero-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)',
           alignItems: 'center',

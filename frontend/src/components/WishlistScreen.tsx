@@ -441,7 +441,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
         )}
 
         {/* 4. Assurance Strip */}
-        <div style={{
+        <div className="responsive-3col-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '16px',

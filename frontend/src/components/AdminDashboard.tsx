@@ -44,7 +44,11 @@ import {
   Award,
   Sparkles,
   CheckCircle2,
-  Truck
+  Truck,
+  Lock,
+  KeyRound,
+  EyeOff,
+  Menu
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -222,6 +226,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   const [inquiryStatusFilter, setInquiryStatusFilter] = useState<string>('');
   const [inquiryNotes, setInquiryNotes] = useState<{ [key: number]: string }>({});
 
+  // Current Logged-in Admin Profile & Password Reset state
+  const [adminUser, setAdminUser] = useState<User | null>(null);
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
+
+  const [passwordForm, setPasswordForm] = useState({
+    old_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState<string | null>(null);
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState<string | null>(null);
+
+  // Mobile sidebar drawer state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   useEffect(() => {
     loadAllAdminData();
   }, []);
@@ -251,6 +281,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       setTestimonials(testimonialsData);
       if (footerData) {
         setFooterConfig(footerData);
+      }
+
+      // Fetch or resolve current admin details
+      try {
+        const me = await api.getMe();
+        setAdminUser(me);
+        setAdminProfileForm({
+          full_name: me.full_name || '',
+          email: me.email || '',
+          phone: me.phone || '',
+          address: me.address || '',
+          city: me.city || '',
+        });
+      } catch {
+        const foundAdmin = usersData.find((u) => u.role === 'admin');
+        if (foundAdmin) {
+          setAdminUser(foundAdmin);
+          setAdminProfileForm({
+            full_name: foundAdmin.full_name || '',
+            email: foundAdmin.email || '',
+            phone: foundAdmin.phone || '',
+            address: foundAdmin.address || '',
+            city: foundAdmin.city || '',
+          });
+        }
       }
 
       const notesMap: { [key: number]: string } = {};
@@ -757,6 +812,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     }
   };
 
+  const handleDeleteUser = async (targetUser: User) => {
+    if (!window.confirm(`Are you sure you want to delete user account "${targetUser.full_name}" (${targetUser.email})? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.deleteUser(targetUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== targetUser.id));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user account');
+    }
+  };
+
+  const handleUpdateAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    setProfileSuccessMsg(null);
+    setProfileErrorMsg(null);
+    try {
+      const updated = await api.updateMe({
+        full_name: adminProfileForm.full_name.trim(),
+        email: adminProfileForm.email.trim(),
+        phone: adminProfileForm.phone.trim() || undefined,
+        address: adminProfileForm.address.trim() || undefined,
+        city: adminProfileForm.city.trim() || undefined,
+      });
+      setAdminUser(updated);
+      setProfileSuccessMsg('Admin profile updated successfully!');
+      setTimeout(() => setProfileSuccessMsg(null), 4000);
+      loadAllAdminData();
+    } catch (err: any) {
+      setProfileErrorMsg(err.message || 'Failed to update admin profile');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrorMsg(null);
+    setPasswordSuccessMsg(null);
+
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordErrorMsg('New password and confirm password do not match.');
+      return;
+    }
+
+    if (passwordForm.new_password.length < 6) {
+      setPasswordErrorMsg('New password must be at least 6 characters.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await api.changePassword({
+        old_password: passwordForm.old_password.trim() || undefined,
+        new_password: passwordForm.new_password,
+      });
+      setPasswordSuccessMsg('Admin password updated successfully!');
+      setPasswordForm({ old_password: '', new_password: '', confirm_password: '' });
+      setTimeout(() => setPasswordSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setPasswordErrorMsg(err.message || 'Failed to update password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   // Banner Handlers
   const openAddBannerModal = () => {
     setEditingBanner(null);
@@ -929,19 +1051,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       color: '#09090b',
       fontFamily: "'Nunito Sans', -apple-system, BlinkMacSystemFont, sans-serif",
     }}>
-      {/* 1. Left Sidebar (Shadcn UI style - Fixed/Static) */}
-      <aside style={{
-        width: '240px',
-        height: '100vh',
-        backgroundColor: '#ffffff',
-        borderRight: '1px solid #e4e4e7',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '24px 16px',
-        flexShrink: 0,
-        overflowY: 'auto',
-      }}>
+      {/* Mobile Sidebar Backdrop */}
+      {isMobileSidebarOpen && (
+        <div className="admin-sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)} />
+      )}
+
+      {/* 1. Left Sidebar (Shadcn UI style - Fixed/Static on desktop, offcanvas on mobile) */}
+      <aside
+        className={`admin-sidebar ${isMobileSidebarOpen ? 'open' : ''}`}
+        style={{
+          width: '240px',
+          height: '100vh',
+          backgroundColor: '#ffffff',
+          borderRight: '1px solid #e4e4e7',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '24px 16px',
+          flexShrink: 0,
+          overflowY: 'auto',
+        }}
+      >
         <div>
           {/* Workspace Title */}
           <div style={{
@@ -1005,7 +1135,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1019,20 +1149,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Package size={16} />
-                Products & Art
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#e4e4e7',
-                color: '#18181b',
-                fontWeight: 700,
-              }}>
-                {paintings.length}
-              </span>
+              <Package size={16} />
+              Products & Art
             </button>
 
             <button
@@ -1040,7 +1158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1054,20 +1172,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ClipboardList size={16} />
-                Inquiries & CRM
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#fee2e2',
-                color: '#ef4444',
-                fontWeight: 700,
-              }}>
-                {inquiries.length}
-              </span>
+              <ClipboardList size={16} />
+              Inquiries & CRM
             </button>
 
             <button
@@ -1075,7 +1181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1089,20 +1195,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Users size={16} />
-                Users
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#e0e7ff',
-                color: '#4338ca',
-                fontWeight: 700,
-              }}>
-                {users.length}
-              </span>
+              <Users size={16} />
+              Users
             </button>
 
             <button
@@ -1110,7 +1204,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1124,20 +1218,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ImageIcon size={16} />
-                Hero Banners
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#fef3c7',
-                color: '#b45309',
-                fontWeight: 700,
-              }}>
-                {banners.length}
-              </span>
+              <ImageIcon size={16} />
+              Hero Banners
             </button>
 
             <button
@@ -1145,7 +1227,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1159,20 +1241,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Layers size={16} />
-                Store Sections
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#e0f2fe',
-                color: '#0369a1',
-                fontWeight: 700,
-              }}>
-                {sections.length}
-              </span>
+              <Layers size={16} />
+              Store Sections
             </button>
 
             <button
@@ -1180,7 +1250,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1194,20 +1264,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FolderTree size={16} />
-                Categories
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#fce7f3',
-                color: '#be185d',
-                fontWeight: 700,
-              }}>
-                {categories.length}
-              </span>
+              <FolderTree size={16} />
+              Categories
             </button>
 
             <button
@@ -1215,7 +1273,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1229,20 +1287,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Quote size={16} />
-                Testimonials
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#fef3c7',
-                color: '#b45309',
-                fontWeight: 700,
-              }}>
-                {testimonials.length}
-              </span>
+              <Quote size={16} />
+              Testimonials
             </button>
 
             <button
@@ -1250,7 +1296,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: '10px',
                 padding: '9px 12px',
                 borderRadius: '6px',
                 border: 'none',
@@ -1264,20 +1310,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 transition: 'all 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <PanelBottom size={16} />
-                Footer
-              </div>
-              <span style={{
-                fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                backgroundColor: '#e0e7ff',
-                color: '#4338ca',
-                fontWeight: 700,
-              }}>
-                Live
-              </span>
+              <PanelBottom size={16} />
+              Footer
             </button>
 
             <button
@@ -1349,21 +1383,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 32px',
+          padding: '0 20px',
           position: 'sticky',
           top: 0,
           zIndex: 20,
         }}>
-          {/* Breadcrumb / Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
+          {/* Breadcrumb / Search & Mobile Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Mobile Menu Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              className="show-on-mobile admin-mobile-toggle"
+              style={{
+                display: 'none',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '34px',
+                height: '34px',
+                borderRadius: '6px',
+                border: '1px solid #e4e4e7',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+                color: '#09090b',
+                padding: 0,
+              }}
+              aria-label="Toggle Navigation"
+            >
+              {isMobileSidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+
+            <div className="hide-on-mobile" style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               backgroundColor: '#f4f4f5',
               padding: '6px 14px',
               borderRadius: '6px',
-              width: '260px',
+              width: '240px',
             }}>
               <Search size={14} color="#71717a" />
               <input
@@ -1429,26 +1486,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               <RefreshCw size={14} />
             </button>
 
-            {/* User Avatar */}
-            <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '50%',
-              backgroundColor: '#09090b',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '13px',
-              fontWeight: 800,
-            }}>
-              AD
+            {/* User Avatar (Redirects to Admin Profile & Settings) */}
+            <div
+              onClick={() => navigate('/admin/settings')}
+              title="Admin Profile & Settings (Click to manage)"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                backgroundColor: navSection === 'settings' ? '#e53637' : '#09090b',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#e53637';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = navSection === 'settings' ? '#e53637' : '#09090b';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              {adminUser?.full_name
+                ? adminUser.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+                : 'AD'}
             </div>
           </div>
         </header>
 
         {/* Page Content Body */}
-        <main style={{ padding: '32px 36px', overflowY: 'auto', flex: 1 }}>
+        <main className="admin-content-padding" style={{ padding: '32px 36px', overflowY: 'auto', flex: 1 }}>
           {/* Dynamic Section Header */}
           <div style={{ marginBottom: '28px' }}>
             <h1 style={{ fontSize: '30px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '6px' }}>
@@ -1505,7 +1579,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
           {navSection === 'overview' && (
             <div>
               {/* 4 Metric Cards in a Row */}
-              <div style={{
+              <div className="responsive-admin-kpi-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: '16px',
@@ -1593,7 +1667,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               </div>
 
               {/* Bottom Cards: Left (Overview Bar Chart) + Right (Recent Sales) */}
-              <div style={{
+              <div className="responsive-admin-overview-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: '1.6fr 1.1fr',
                 gap: '20px',
@@ -2356,7 +2430,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                             {/* Actions / Direct Contact */}
                             <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {whatsappUrl && (
                                   <a
                                     href={whatsappUrl}
@@ -2400,6 +2474,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     <Phone size={12} /> Call
                                   </a>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(u)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '5px 9px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#fee2e2',
+                                    border: '1px solid #fecaca',
+                                    color: '#dc2626',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '11.5px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  title="Delete user account"
+                                >
+                                  <Trash2 size={12} /> Delete
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -4360,28 +4455,432 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             </div>
           )}
 
-          {/* VIEW 6: SETTINGS */}
+          {/* VIEW 6: SETTINGS & ADMIN PROFILE */}
           {navSection === 'settings' && (
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
-              padding: '28px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-              maxWidth: '600px',
-            }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b', marginBottom: '8px' }}>
-                Store & Database Settings
-              </h3>
-              <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
-                Current database connection: <strong>PostgreSQL (ArtEcommerce)</strong>
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ padding: '12px', backgroundColor: '#f4f4f5', borderRadius: '6px', fontSize: '13px' }}>
-                  <strong>Currency:</strong> Indian Rupee (INR ₹)
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Header Bar */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e4e4e7',
+                borderRadius: '10px',
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              }}>
+                <div>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Settings size={20} color="#e53637" /> Admin Profile & System Settings
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#71717a', margin: '4px 0 0 0' }}>
+                    Manage administrator profile credentials, reset login password, and review database configurations.
+                  </p>
                 </div>
-                <div style={{ padding: '12px', backgroundColor: '#f4f4f5', borderRadius: '6px', fontSize: '13px' }}>
-                  <strong>Database URL:</strong> postgresql://postgres:***@localhost:5432/ArtEcommerce
+
+                <button
+                  type="button"
+                  onClick={loadAllAdminData}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #e4e4e7',
+                    backgroundColor: '#ffffff',
+                    color: '#09090b',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <RefreshCw size={14} /> Refresh Data
+                </button>
+              </div>
+
+              {/* 2-Column Grid: Admin Profile Details & Password Reset */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
+                {/* CARD 1: Admin Profile Details */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '10px',
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                }}>
+                  {/* Admin Visual Header */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    paddingBottom: '20px',
+                    borderBottom: '1px solid #f4f4f5',
+                  }}>
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '50%',
+                      backgroundColor: '#09090b',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      fontWeight: 800,
+                      border: '2px solid #e4e4e7',
+                      flexShrink: 0,
+                    }}>
+                      {adminUser?.full_name
+                        ? adminUser.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+                        : 'AD'}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                          {adminUser?.full_name || 'Administrator'}
+                        </h3>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          backgroundColor: '#09090b',
+                          color: '#ffffff',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          <ShieldCheck size={12} color="#e53637" /> {adminUser?.role || 'ADMIN'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                        {adminUser?.email || 'admin@artweb.com'}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#a1a1aa', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={12} /> Member Since: {adminUser?.created_at ? new Date(adminUser.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'September 2026'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Edit Form */}
+                  <div>
+                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '16px' }}>
+                      Profile Information
+                    </h4>
+
+                    {profileSuccessMsg && (
+                      <div style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#dcfce7',
+                        border: '1px solid #bbf7d0',
+                        color: '#166534',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}>
+                        <CheckCircle2 size={16} /> {profileSuccessMsg}
+                      </div>
+                    )}
+
+                    {profileErrorMsg && (
+                      <div style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#fee2e2',
+                        border: '1px solid #fecaca',
+                        color: '#b91c1c',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        marginBottom: '16px',
+                      }}>
+                        {profileErrorMsg}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleUpdateAdminProfile}>
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={adminProfileForm.full_name}
+                          onChange={(e) => setAdminProfileForm({ ...adminProfileForm, full_name: e.target.value })}
+                          required
+                          placeholder="e.g. Gallery Curator"
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                          Email Address *
+                        </label>
+                        <input
+                          type="email"
+                          className="form-control"
+                          value={adminProfileForm.email}
+                          onChange={(e) => setAdminProfileForm({ ...adminProfileForm, email: e.target.value })}
+                          required
+                          placeholder="admin@artweb.com"
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: '14px' }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                          Phone / WhatsApp Contact
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={adminProfileForm.phone}
+                          onChange={(e) => setAdminProfileForm({ ...adminProfileForm, phone: e.target.value })}
+                          placeholder="+91 98765 43210"
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Street Address
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={adminProfileForm.address}
+                            onChange={(e) => setAdminProfileForm({ ...adminProfileForm, address: e.target.value })}
+                            placeholder="124 Museum Way"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={adminProfileForm.city}
+                            onChange={(e) => setAdminProfileForm({ ...adminProfileForm, city: e.target.value })}
+                            placeholder="Chennai / Mumbai"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isUpdatingProfile}
+                        className="btn btn-primary"
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          fontWeight: 700,
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          cursor: isUpdatingProfile ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isUpdatingProfile ? (
+                          <>
+                            <RefreshCw size={14} className="animate-spin" /> Saving Changes...
+                          </>
+                        ) : (
+                          <>Save Profile Details</>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* CARD 2: Password Reset */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '10px',
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                }}>
+                  <div>
+                    <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#09090b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <KeyRound size={18} color="#e53637" /> Reset Admin Password
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#71717a', margin: '6px 0 0 0' }}>
+                      Change your password credentials securely. Enter your current password (if set) and choose a strong new password.
+                    </p>
+                  </div>
+
+                  {passwordSuccessMsg && (
+                    <div style={{
+                      padding: '10px 14px',
+                      backgroundColor: '#dcfce7',
+                      border: '1px solid #bbf7d0',
+                      color: '#166534',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}>
+                      <CheckCircle2 size={16} /> {passwordSuccessMsg}
+                    </div>
+                  )}
+
+                  {passwordErrorMsg && (
+                    <div style={{
+                      padding: '10px 14px',
+                      backgroundColor: '#fee2e2',
+                      border: '1px solid #fecaca',
+                      color: '#b91c1c',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                    }}>
+                      {passwordErrorMsg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleResetPassword}>
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        Current Password (Optional if already authenticated)
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-control"
+                        value={passwordForm.old_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, old_password: e.target.value })}
+                        placeholder="Enter current password"
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        New Password * (Min 6 characters)
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-control"
+                        value={passwordForm.new_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                        required
+                        minLength={6}
+                        placeholder="Enter new strong password"
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        Confirm New Password *
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-control"
+                        value={passwordForm.confirm_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                        required
+                        minLength={6}
+                        placeholder="Re-enter new password"
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#52525b', cursor: 'pointer', userSelect: 'none' }}>
+                        <input
+                          type="checkbox"
+                          checked={showPassword}
+                          onChange={(e) => setShowPassword(e.target.checked)}
+                        />
+                        <span>Show password characters</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      style={{
+                        width: '100%',
+                        padding: '10px 16px',
+                        backgroundColor: '#e53637',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '13.5px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: isChangingPassword ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isChangingPassword ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" /> Updating Password...
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={14} /> Update Admin Password
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* CARD 3: Store & Database Environment Info */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e4e4e7',
+                borderRadius: '10px',
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              }}>
+                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '14px' }}>
+                  System & Environment Details
+                </h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Database Engine</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>PostgreSQL (Supabase Cloud)</div>
+                  </div>
+
+                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Store Currency</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>INR (₹) Indian Rupee</div>
+                  </div>
+
+                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Standard</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#16a34a', marginTop: '4px' }}>Bcrypt + JWT Authentication</div>
+                  </div>
+
+                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Administrator Access</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>Full Management Permissions</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -5036,7 +5535,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. Symphony in Cobalt & Raw Sienna"
+                  placeholder=""
                   value={bannerFormData.title}
                   onChange={(e) => setBannerFormData({ ...bannerFormData, title: e.target.value })}
                   required
@@ -5051,7 +5550,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 <textarea
                   className="form-control"
                   rows={3}
-                  placeholder="e.g. Bold gestural abstract composition meditating on urban energy and contemplative silence..."
+                  placeholder="."
                   value={bannerFormData.description}
                   onChange={(e) => setBannerFormData({ ...bannerFormData, description: e.target.value })}
                   required
