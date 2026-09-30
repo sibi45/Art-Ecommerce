@@ -17,3 +17,12 @@ services:
         value: production
       - key: CORS_ORIGINS
         value: "*"
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        value: ci6vkozh
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+

@@ -10,6 +10,8 @@ from app.database import get_db
 from app.models import Painting, Category, User, Inquiry
 from app.schemas import PaintingResponse, PaintingCreate, PaintingUpdate, CategoryResponse
 from app.dependencies import get_current_admin
+from app.config import settings
+
 
 router = APIRouter(tags=["Paintings & Gallery"])
 
@@ -164,13 +166,36 @@ def upload_painting_image(
     file: UploadFile = File(...),
     admin: User = Depends(get_current_admin)
 ):
+    # Allowed extensions
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".avif"]:
+        raise HTTPException(status_code=400, detail="Only image files (.jpg, .jpeg, .png, .webp, .avif) are allowed")
+
+    # If Cloudinary credentials are configured, upload to Cloudinary CDN
+    if settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET:
+        try:
+            import cloudinary
+            import cloudinary.uploader
+
+            cloudinary.config(
+                cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+                api_key=settings.CLOUDINARY_API_KEY,
+                api_secret=settings.CLOUDINARY_API_SECRET,
+                secure=True
+            )
+            result = cloudinary.uploader.upload(
+                file.file,
+                folder="artweb_paintings",
+                resource_type="image"
+            )
+            secure_url = result.get("secure_url") or result.get("url")
+            return {"url": secure_url, "filename": result.get("public_id", file.filename)}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Cloudinary upload failed: {str(e)}")
+
+    # Local filesystem fallback
     UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    # Allowed extensions
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".avif"]:
-        raise HTTPException(status_code=400, detail="Only image files (.jpg, .jpeg, .png, .webp) are allowed")
 
     file_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(UPLOAD_DIR, file_name)
@@ -179,3 +204,4 @@ def upload_painting_image(
         shutil.copyfileobj(file.file, buffer)
 
     return {"url": f"/uploads/{file_name}", "filename": file_name}
+
