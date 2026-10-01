@@ -1,18 +1,17 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
-import { Painting, Category, ProductSection, Testimonial } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Painting, Category, ProductSection, Testimonial, Banner, ShowcaseItem } from '../types';
 import { api } from '../services/api';
 import { PaintingCard } from './PaintingCard';
 import {
-  Sparkles,
   Truck,
   ShieldCheck,
   Star,
-  Scissors,
-  CheckCircle2,
   ArrowRight,
-  RefreshCw,
-  Search
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  Lock,
 } from 'lucide-react';
 
 interface GalleryViewProps {
@@ -34,12 +33,32 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [sections, setSections] = useState<ProductSection[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
+  const testimonialScrollRef = useRef<HTMLDivElement>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters & Search
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+  // Newsletter state
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+
+
+
+  const scrollTestimonials = (direction: 'left' | 'right') => {
+    if (testimonialScrollRef.current) {
+      const scrollAmount = 340;
+      testimonialScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   // Sync URL search params
   useEffect(() => {
@@ -62,73 +81,77 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [paintingsData, categoriesData, sectionsData, testimonialsData] = await Promise.all([
+      const [paintingsData, categoriesData, sectionsData, testimonialsData, bannersData, showcaseData] = await Promise.all([
         api.getPaintings(),
         api.getCategories(),
         api.getSections(),
         api.getTestimonials(),
+        api.getBanners(),
+        api.getShowcaseItems(),
       ]);
       setPaintings(paintingsData);
       setCategories(categoriesData);
       setSections(sectionsData);
       setTestimonials(testimonialsData);
+      setBanners(bannersData || []);
+      setShowcaseItems(showcaseData || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load artworks');
+      setError(err.message || 'Failed to load products');
     } finally {
       setLoading(false);
     }
   };
 
-  const pastelColors = [
-    { bg: '#fef3c7', text: '#92400e' }, // Warm Gold
-    { bg: '#fee2e2', text: '#991b1b' }, // Soft Rose
-    { bg: '#ffedd5', text: '#9a3412' }, // Soft Peach
-    { bg: '#e0f2fe', text: '#075985' }, // Soft Sky
-    { bg: '#f3e8ff', text: '#6b21a8' }, // Soft Lavender
-    { bg: '#dcfce7', text: '#166534' }, // Soft Mint
-  ];
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail || !newsletterEmail.includes('@')) return;
+    setNewsletterSubscribed(true);
+    setNewsletterEmail('');
+    setTimeout(() => setNewsletterSubscribed(false), 5000);
+  };
 
   if (loading) {
     return (
-      <div style={{ padding: '80px 0', textAlign: 'center', backgroundColor: '#ffffff' }}>
+      <div style={{ padding: '80px 0', textAlign: 'center', backgroundColor: '#ffffff', fontFamily: "'Roboto Condensed', sans-serif" }}>
         <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid #e4e4e7',
-          borderTopColor: '#09090b',
+          width: '36px',
+          height: '36px',
+          border: '3px solid #e5e7eb',
+          borderTopColor: '#1b3b2b',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
           margin: '0 auto 16px',
         }} />
-        <p style={{ fontSize: '14px', color: '#64748b' }}>Curating Gallery Collection...</p>
+        <p style={{ fontSize: '15px', color: '#6b7280', fontWeight: 600 }}>Loading Catalog...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '80px 20px', textAlign: 'center', backgroundColor: '#ffffff' }}>
+      <div style={{ padding: '80px 20px', textAlign: 'center', backgroundColor: '#ffffff', fontFamily: "'Roboto Condensed', sans-serif" }}>
         <p style={{ fontSize: '15px', color: '#e11d48', fontWeight: 600, marginBottom: '12px' }}>{error}</p>
         <button
           onClick={loadData}
           style={{
             padding: '8px 22px',
-            backgroundColor: '#09090b',
+            backgroundColor: '#1b3b2b',
             color: '#ffffff',
-            borderRadius: '6px',
+            borderRadius: '4px',
             border: 'none',
-            fontSize: '13px',
-            fontWeight: 600,
+            fontSize: '14px',
+            fontWeight: 700,
             cursor: 'pointer',
+            fontFamily: 'inherit',
           }}
         >
-          Retry Loading Gallery
+          Retry
         </button>
       </div>
     );
   }
 
-  // Active section from URL param (by id or slug)
+  // Active section from URL param
   const activeSection = sectionParam
     ? sections.find((s) => s.id.toString() === sectionParam || s.slug === sectionParam)
     : null;
@@ -138,12 +161,8 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
 
   // Filter helper
   const filterPainting = (p: Painting): boolean => {
-    if (activeSection && p.section_id !== activeSection.id) {
-      return false;
-    }
-    if (selectedCategoryId && p.category_id !== selectedCategoryId) {
-      return false;
-    }
+    if (activeSection && p.section_id !== activeSection.id) return false;
+    if (selectedCategoryId && p.category_id !== selectedCategoryId) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchTitle = p.title.toLowerCase().includes(q);
@@ -157,54 +176,74 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   const isFiltering = !!search.trim() || selectedCategoryId !== null || !!activeSection;
   const filteredPaintings = paintings.filter(filterPainting);
 
+  // Continuous horizontal scrolling showcase images from dedicated Admin Showcase Items (100% dynamic)
+  const activeShowcases = showcaseItems.filter((s) => s.is_active && Boolean(s.image_url));
+  const promoImages = activeShowcases;
+
+  const repeatedPromoImages = (() => {
+    if (promoImages.length === 0) return [];
+    let items = [...promoImages];
+    while (items.length < 6) {
+      items = [...items, ...promoImages];
+    }
+    return [...items, ...items];
+  })();
+
   return (
-    <div id="gallery-catalog" style={{ backgroundColor: '#ffffff', paddingBottom: '90px' }}>
-      
-      {/* 1. Shop by Category Section (Matching Reference Image 2) */}
-      <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '48px 28px 36px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+    <div id="gallery-catalog" style={{
+      backgroundColor: '#ffffff',
+      paddingBottom: '60px',
+      fontFamily: "'Roboto Condensed', sans-serif"
+    }}>
+      {/* 1. Shop by Category Section (Minimog Style) */}
+      <section style={{ maxWidth: '1380px', margin: '0 auto', padding: '40px 24px 28px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{
-            fontSize: '26px',
-            fontWeight: 700,
-            color: '#09090b',
+            fontSize: '22px',
+            fontWeight: 800,
+            color: '#111827',
             margin: 0,
-            fontFamily: "'Playfair Display', Georgia, serif",
+            letterSpacing: '-0.01em',
           }}>
-            Shop by Category
+            Collection
           </h2>
 
           <button
             type="button"
-            onClick={() => setSelectedCategoryId(null)}
+            onClick={() => {
+              setSelectedCategoryId(null);
+              navigate('/collections');
+            }}
             style={{
               background: 'none',
               border: 'none',
-              color: '#e11d48',
+              color: '#111827',
               fontSize: '13.5px',
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
+              fontFamily: 'inherit',
             }}
           >
-            View All <span>&rarr;</span>
+            View all collections <ArrowRight size={14} />
           </button>
         </div>
 
-        {/* Circular Category Avatars with Soft Pastel Pills (Matching Image 2) */}
+        {/* Categories Horizontal Grid (Round Circular Cards) */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '32px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+          gap: '16px',
           overflowX: 'auto',
-          paddingBottom: '12px',
-          scrollbarWidth: 'none',
+          paddingBottom: '8px',
+          justifyItems: 'center',
         }}>
-          {categories.map((cat, idx) => {
-            const color = pastelColors[idx % pastelColors.length];
+          {categories.map((cat) => {
             const samplePainting = paintings.find((p) => p.category_id === cat.id);
             const isSelected = selectedCategoryId === cat.id;
+            const imgSrc = cat.image_url || samplePainting?.image_url || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300';
 
             return (
               <div
@@ -214,48 +253,53 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px',
                   cursor: 'pointer',
-                  minWidth: '110px',
                   userSelect: 'none',
+                  transition: 'transform 0.2s ease',
+                  maxWidth: '120px',
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-3px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
               >
-                {/* Circular Artwork Avatar */}
+                {/* Round Circular Category Card Container */}
                 <div style={{
                   width: '96px',
                   height: '96px',
+                  backgroundColor: '#f3f4f6',
                   borderRadius: '50%',
+                  border: isSelected ? '2.5px solid #1b3b2b' : '1.5px solid #e5e7eb',
                   overflow: 'hidden',
-                  backgroundColor: '#f1f5f9',
-                  border: isSelected ? '3px solid #e11d48' : '2px solid #ffffff',
-                  boxShadow: isSelected ? '0 0 0 2px #e11d48' : '0 4px 14px rgba(0,0,0,0.08)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px',
+                  boxShadow: isSelected ? '0 0 0 3px rgba(27,59,43,0.18)' : '0 2px 6px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0,
                 }}>
-                  {cat.image_url || samplePainting?.image_url ? (
-                    <img
-                      src={cat.image_url || samplePainting?.image_url}
-                      alt={cat.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', backgroundColor: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color.text, fontWeight: 700, fontSize: '18px' }}>
-                      {cat.name.charAt(0)}
-                    </div>
-                  )}
+                  <img
+                    src={imgSrc}
+                    alt={cat.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      borderRadius: '50%',
+                      transition: 'transform 0.3s ease',
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300';
+                    }}
+                  />
                 </div>
 
-                {/* Soft Pastel Badge / Pill (Matching Image 2) */}
                 <span style={{
-                  padding: '5px 14px',
-                  borderRadius: '999px',
-                  backgroundColor: color.bg,
-                  color: color.text,
-                  fontSize: '12px',
+                  fontSize: '13px',
                   fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                  transition: 'opacity 0.2s ease',
-                  opacity: isSelected ? 1 : 0.9,
+                  color: isSelected ? '#1b3b2b' : '#111827',
+                  marginTop: '10px',
+                  textAlign: 'center',
+                  lineHeight: 1.2,
                 }}>
                   {cat.name}
                 </span>
@@ -265,212 +309,124 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
         </div>
       </section>
 
-      {/* 2. Curated Themes Grid (Dynamic Store Sections configured from Admin) */}
-      {!isFiltering && sections.filter((s) => s.is_active).length > 0 && (
-        <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '20px 28px 50px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: 700,
-                color: '#09090b',
-                margin: '0 0 4px 0',
-                fontFamily: "'Playfair Display', Georgia, serif",
-              }}>
-                Styles to Celebrate In
-              </h2>
-              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                Curated handcrafted silhouettes designed for living spaces, galleries & architectural grace.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategoryId(null);
-                setSearch('');
-                setSearchParams({});
-                navigate('/shop');
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#e11d48',
-                fontSize: '12.5px',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-              }}
-            >
-              EXPLORE ALL &rarr;
-            </button>
-          </div>
-
-          {/* Dynamic Curated Feature Cards (Configured from Admin Store Sections) */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '18px',
-          }}>
-            {sections
-              .filter((s) => s.is_active)
-              .map((section, idx) => {
-                const themePresets = [
-                  { bg: '#fefce8', border: '#fef08a', badgeBg: '#fef08a', badgeColor: '#854d0e', textColor: '#713f12' },
-                  { bg: '#fff1f2', border: '#fecdd3', badgeBg: '#fecdd3', badgeColor: '#9f1239', textColor: '#881337' },
-                  { bg: '#fffbeb', border: '#fde68a', badgeBg: '#fde68a', badgeColor: '#92400e', textColor: '#78350f' },
-                  { bg: '#f0fdfa', border: '#99f6e4', badgeBg: '#99f6e4', badgeColor: '#115e59', textColor: '#134e4a' },
-                  { bg: '#f5f3ff', border: '#ddd6fe', badgeBg: '#ddd6fe', badgeColor: '#5b21b6', textColor: '#4c1d95' },
-                ];
-                const theme = themePresets[idx % themePresets.length];
-                const assignedCount = paintings.filter((p) => p.section_id === section.id).length;
-
-                return (
-                  <div
-                    key={section.id}
-                    onClick={() => {
-                      navigate('/shop?section=' + section.id);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
+      {/* 2. Scrolling Showcase Marquee */}
+      {!isFiltering && repeatedPromoImages.length > 0 && (
+        <section style={{ maxWidth: '1380px', margin: '16px auto 36px', padding: '0 24px' }}>
+          <div
+            className="promo-scroll-container"
+            style={{
+              borderRadius: '8px',
+              overflow: 'hidden',
+              height: '210px',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #e5e7eb',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <div className="promo-scroll-track">
+              {repeatedPromoImages.map((promo, idx) => (
+                <div
+                  key={`scroll-promo-${promo.id}-${idx}`}
+                  style={{
+                    width: '260px',
+                    height: '210px',
+                    flexShrink: 0,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    backgroundColor: '#1f2937',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(229, 231, 235, 0.6)',
+                  }}
+                >
+                  <img
+                    src={promo.image_url}
+                    alt={promo.title || 'Promotional Banner'}
+                    loading="lazy"
                     style={{
-                      backgroundColor: theme.bg,
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: '10px',
-                      padding: '24px 22px',
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                      transition: 'transform 0.3s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  />
+
+                  {/* Tag badge */}
+                  {promo.tag && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '10px',
+                      backgroundColor: 'rgba(27, 59, 43, 0.9)',
+                      color: '#ffffff',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      backdropFilter: 'blur(4px)',
                       display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      minHeight: section.image_url ? '270px' : '190px',
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                      overflow: 'hidden',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.06)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  >
-                    <div>
-                      {/* Section Cover Image if uploaded */}
-                      {section.image_url && (
-                        <div style={{
-                          height: '140px',
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          marginBottom: '14px',
-                          backgroundColor: '#ffffff',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                        }}>
-                          <img
-                            src={section.image_url}
-                            alt={section.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                          />
+                      alignItems: 'center',
+                      gap: '5px',
+                      zIndex: 2,
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4ade80', display: 'inline-block' }} />
+                      {promo.tag}
+                    </div>
+                  )}
+
+                  {/* Bottom Gradient with Title / Description (No Product Price) */}
+                  {(promo.title || promo.description) && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: '16px 14px 10px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
+                      color: '#ffffff',
+                      zIndex: 2,
+                    }}>
+                      {promo.title && (
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {promo.title}
                         </div>
                       )}
-
-                      <span style={{
-                        display: 'inline-block',
-                        backgroundColor: theme.badgeBg,
-                        color: theme.badgeColor,
-                        fontSize: '9.5px',
-                        fontWeight: 800,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        padding: '3px 8px',
-                        borderRadius: '3px',
-                        marginBottom: '12px',
-                      }}>
-                        {section.name.toUpperCase()}
-                      </span>
-                      <h3 style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        color: '#09090b',
-                        margin: '0 0 6px 0',
-                        fontFamily: "'Playfair Display', Georgia, serif"
-                      }}>
-                        {section.name}
-                      </h3>
-                      <p style={{ fontSize: '12.5px', color: theme.textColor, margin: 0, lineHeight: 1.5 }}>
-                        {section.description || (assignedCount > 0 ? `Curated collection with ${assignedCount} original artwork${assignedCount === 1 ? '' : 's'}.` : 'Curated handcrafted art pieces designed for living spaces.')}
-                      </p>
+                      {promo.description && (
+                        <div style={{ fontSize: '11px', opacity: 0.9, color: '#e5e7eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          {promo.description}
+                        </div>
+                      )}
                     </div>
-
-                    <div style={{ marginTop: '18px' }}>
-                      <span style={{
-                        fontSize: '12.5px',
-                        fontWeight: 700,
-                        color: '#09090b',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        Shop {section.name} &rarr;
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      {/* 3. Product Sections (Featured, Best Sellers, etc., Matching Images 3 & 4) */}
-      <div className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px' }}>
+      {/* 3. Product Catalog & Sections */}
+      <div id="trending-products-section" style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 24px' }}>
         
-        {/* If user is filtering by section, category or search, show dedicated filtered section */}
+        {/* If filtering by search/category/section */}
         {isFiltering ? (
-          <section style={{ marginBottom: '50px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
+          <section style={{ marginBottom: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  {activeSection && (
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      padding: '3px 10px',
-                      borderRadius: '999px',
-                    }}>
-                      Store Section
-                    </span>
-                  )}
-                  {selectedCategory && (
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      backgroundColor: '#e0f2fe',
-                      color: '#075985',
-                      padding: '3px 10px',
-                      borderRadius: '999px',
-                    }}>
-                      Category
-                    </span>
-                  )}
-                </div>
-                <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#09090b', margin: '0 0 4px 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  {activeSection ? activeSection.name : (selectedCategory ? selectedCategory.name : (search.trim() ? `Search: "${search}"` : 'Curated Collection'))}
+                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', margin: '0 0 4px 0' }}>
+                  {activeSection ? activeSection.name : (selectedCategory ? selectedCategory.name : (search.trim() ? `Search Results: "${search}"` : 'Curated Products'))}
                 </h2>
-                <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
-                  {activeSection?.description ? `${activeSection.description} · ` : ''}
-                  Showing all {filteredPaintings.length} {filteredPaintings.length === 1 ? 'artwork' : 'artworks'}
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                  Showing {filteredPaintings.length} product{filteredPaintings.length === 1 ? '' : 's'}
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -480,30 +436,28 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   navigate('/shop');
                 }}
                 style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  color: '#e11d48',
+                  background: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  color: '#111827',
                   fontSize: '12.5px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  padding: '7px 14px',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '4px',
+                  fontFamily: 'inherit',
                 }}
               >
-                Clear Section Filter &times;
+                Clear Filter &times;
               </button>
             </div>
 
             {filteredPaintings.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <p style={{ color: '#334155', fontSize: '15px', fontWeight: 600, margin: '0 0 8px 0' }}>
-                  No artworks currently found in {activeSection ? `"${activeSection.name}"` : 'this selection'}.
+              <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <p style={{ color: '#111827', fontSize: '15px', fontWeight: 700, margin: '0 0 6px 0' }}>
+                  No products found for this selection.
                 </p>
-                <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 18px 0' }}>
-                  Assign artworks to this section from the Admin panel to display them here.
+                <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 16px 0' }}>
+                  Try exploring other categories or clearing your search filter.
                 </p>
                 <button
                   type="button"
@@ -513,16 +467,26 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     setSearchParams({});
                     navigate('/shop');
                   }}
-                  style={{ padding: '8px 20px', backgroundColor: '#09090b', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                  style={{
+                    padding: '8px 20px',
+                    backgroundColor: '#1b3b2b',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
                 >
-                  View All Sections
+                  View All Products
                 </button>
               </div>
             ) : (
-              <div className="gallery-artwork-grid" style={{
+              <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '24px',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: '20px',
               }}>
                 {filteredPaintings.map((painting) => (
                   <PaintingCard
@@ -536,311 +500,400 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
             )}
           </section>
         ) : (
-          /* 100% Dynamic Store Sections configured from Admin Panel */
+          /* Normal Dynamic Sections */
           <>
-            {sections.map((section) => {
-              const sectionPaintings = paintings.filter((p) => p.section_id === section.id);
-              if (sectionPaintings.length === 0) return null;
+            {/* Dedicated "Trending Products" Section (Configurable via Admin -> Sections) */}
+            {(() => {
+              const trendingSection = sections.find((s) =>
+                s.is_active && (
+                  s.slug === 'trending-products' ||
+                  s.slug === 'trending' ||
+                  s.name.toLowerCase().includes('trending')
+                )
+              );
+
+              const trendingPaintings = trendingSection
+                ? paintings.filter((p) => p.section_id === trendingSection.id)
+                : [];
+
+              const displayTrending = trendingPaintings.length > 0
+                ? trendingPaintings
+                : (trendingSection ? [] : paintings.slice(0, 10));
 
               return (
-                <section key={section.id} style={{ marginBottom: '60px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-                    <div>
-                      <h2 style={{
-                        fontSize: '26px',
-                        fontWeight: 700,
-                        color: '#09090b',
-                        margin: '0 0 4px 0',
-                        fontFamily: "'Playfair Display', Georgia, serif",
+                <>
+                  {displayTrending.length > 0 && (
+                    <section style={{ marginBottom: '44px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <div>
+                          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', margin: 0 }}>
+                            {trendingSection ? trendingSection.name : 'Trending Products'}
+                          </h2>
+                          {trendingSection?.description && (
+                            <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>
+                              {trendingSection.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <span
+                          onClick={() => {
+                            navigate(trendingSection ? `/shop?section=${trendingSection.id}` : '/shop');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          style={{
+                            color: '#111827',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          View all products <ArrowRight size={14} />
+                        </span>
+                      </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                        gap: '18px',
                       }}>
-                        {section.name}
-                      </h2>
-                      {section.description && (
-                        <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                          {section.description}
-                        </p>
-                      )}
-                    </div>
+                        {displayTrending.map((painting) => (
+                          <PaintingCard
+                            key={painting.id}
+                            painting={painting}
+                            onViewDetails={onSelectPainting}
+                            onInquire={onInquirePainting}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
-                    <span
-                      onClick={() => {
-                        navigate('/shop?section=' + section.id);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      style={{
-                        color: '#e11d48',
-                        fontSize: '12.5px',
-                        fontWeight: 800,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      VIEW ALL &rarr;
-                    </span>
-                  </div>
+                  {/* Configured Admin Sections (excluding Trending Products to avoid duplication) */}
+                  {sections
+                    .filter((s) => s.is_active && s.id !== trendingSection?.id)
+                    .map((section) => {
+                      const secPaintings = paintings.filter((p) => p.section_id === section.id);
+                      if (secPaintings.length === 0) return null;
 
-                  <div className="gallery-artwork-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '24px',
-                  }}>
-                    {sectionPaintings.slice(0, 4).map((painting) => (
-                      <PaintingCard
-                        key={painting.id}
-                        painting={painting}
-                        onViewDetails={onSelectPainting}
-                        onInquire={onInquirePainting}
-                      />
-                    ))}
-                  </div>
-                </section>
+                      return (
+                        <section key={section.id} style={{ marginBottom: '44px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', margin: '0 0 2px 0' }}>
+                                {section.name}
+                              </h2>
+                              {section.description && (
+                                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                                  {section.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <span
+                              onClick={() => {
+                                navigate('/shop?section=' + section.id);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              style={{
+                                color: '#111827',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              View all <ArrowRight size={14} />
+                            </span>
+                          </div>
+
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                            gap: '18px',
+                          }}>
+                            {secPaintings.slice(0, 5).map((painting) => (
+                              <PaintingCard
+                                key={painting.id}
+                                painting={painting}
+                                onViewDetails={onSelectPainting}
+                                onInquire={onInquirePainting}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      );
+                    })}
+                </>
               );
-            })}
-
-            {/* If no sections have artworks, display the collection artworks so page is never empty */}
-            {sections.every((s) => paintings.filter((p) => p.section_id === s.id).length === 0) && paintings.length > 0 && (
-              <section style={{ marginBottom: '60px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-                  <div>
-                    <h2 style={{
-                      fontSize: '26px',
-                      fontWeight: 700,
-                      color: '#09090b',
-                      margin: '0 0 4px 0',
-                      fontFamily: "'Playfair Display', Georgia, serif",
-                    }}>
-                      All Artworks
-                    </h2>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                      Explore original handcrafted works from verified artists
-                    </p>
-                  </div>
-                  <span
-                    onClick={() => {
-                      navigate('/shop');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    style={{
-                      color: '#e11d48',
-                      fontSize: '12.5px',
-                      fontWeight: 800,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    VIEW ALL &rarr;
-                  </span>
-                </div>
-
-                <div className="gallery-artwork-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: '24px',
-                }}>
-                  {paintings.slice(0, 8).map((painting) => (
-                    <PaintingCard
-                      key={painting.id}
-                      painting={painting}
-                      onViewDetails={onSelectPainting}
-                      onInquire={onInquirePainting}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+            })()}
           </>
         )}
-      </div>
 
-      {/* 4. Brand Trust / Value Proposition Strip (Matching Reference Image 5) */}
-      <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '20px auto 70px', padding: '0 28px' }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          border: '1px solid #f1f5f9',
-          borderRadius: '12px',
-          padding: '36px 32px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '28px',
-        }}>
-          {/* Pillar 1: Pure Silk / 100% Original */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '46px',
-              height: '46px',
-              minWidth: '46px',
-              borderRadius: '50%',
-              backgroundColor: '#fdf2f8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#db2777',
-            }}>
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#09090b', marginBottom: '2px' }}>
-                100% PURE SILK & ART
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Certified handloom weaves & originals
-              </div>
-            </div>
-          </div>
-
-          {/* Pillar 2: Perfect Fit / Museum Framing */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '46px',
-              height: '46px',
-              minWidth: '46px',
-              borderRadius: '50%',
-              backgroundColor: '#fefce8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ca8a04',
-            }}>
-              <Scissors size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#09090b', marginBottom: '2px' }}>
-                PERFECT FIT & FRAMING
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Expert standard tailoring & crating
-              </div>
-            </div>
-          </div>
-
-          {/* Pillar 3: Insured Delivery */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '46px',
-              height: '46px',
-              minWidth: '46px',
-              borderRadius: '50%',
-              backgroundColor: '#f0fdf4',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#16a34a',
-            }}>
-              <Truck size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#09090b', marginBottom: '2px' }}>
-                INSURED DELIVERY
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Safe doorstep crated delivery
-              </div>
-            </div>
-          </div>
-
-          {/* Pillar 4: Authentic Karigari / Provenance */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '46px',
-              height: '46px',
-              minWidth: '46px',
-              borderRadius: '50%',
-              backgroundColor: '#eff6ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#2563eb',
-            }}>
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#09090b', marginBottom: '2px' }}>
-                AUTHENTIC KARIGARI
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Hand-embroidered zardozi & provenance
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. What Our Patrons Say (Matching Reference Image 5) */}
-      {testimonials.length > 0 && (
-        <section className="responsive-container-padding" style={{ maxWidth: '1380px', margin: '0 auto', padding: '0 28px 48px' }}>
-          <h2 style={{
-            fontSize: '26px',
-            fontWeight: 700,
-            color: '#09090b',
-            margin: '0 0 28px 0',
-            fontFamily: "'Playfair Display', Georgia, serif",
+        {/* 4. Social Proof Trust Banner ("Trusted by 10,000+ Happy Customers") */}
+        <section style={{ margin: '30px 0 24px' }}>
+          <div style={{
+            backgroundColor: '#f9fafb',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '24px 20px',
+            textAlign: 'center',
           }}>
-            What Our Patrons Say
-          </h2>
+            <div style={{
+              fontSize: '13.5px',
+              fontWeight: 800,
+              color: '#111827',
+              marginBottom: '20px',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+            }}>
+              Trusted by 10,000+ Happy Customers
+            </div>
 
-          {/* Dynamic Review Cards */}
-          <div className="responsive-testimonial-grid" style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '24px',
-          }}>
-            {testimonials.map((t) => (
-              <div
-                key={t.id}
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #f1f5f9',
-                  borderRadius: '10px',
-                  padding: '28px 24px',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  minHeight: '190px',
-                }}
-              >
-                <div>
-                  {/* Rating Stars */}
-                  <div style={{ display: 'flex', gap: '3px', marginBottom: '16px', color: '#f59e0b' }}>
-                    {[...Array(t.rating || 5)].map((_, i) => (
-                      <Star key={i} size={15} fill="#f59e0b" strokeWidth={0} />
-                    ))}
-                  </div>
-                  <p style={{
-                    fontSize: '13.5px',
-                    fontStyle: 'italic',
-                    color: '#334155',
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}>
-                    “{t.quote}”
-                  </p>
-                </div>
-
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {t.avatar_url && (
-                    <img
-                      src={t.avatar_url}
-                      alt={t.name}
-                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                  )}
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#09090b' }}>{t.name}</div>
-                    {t.location && (
-                      <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>{t.location}</div>
-                    )}
-                  </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '20px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <Star size={18} fill="#1b3b2b" color="#1b3b2b" />
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>4.8/5 Average Rating</div>
+                  <div style={{ fontSize: '11.5px', color: '#6b7280' }}>From 10,000+ Reviews</div>
                 </div>
               </div>
-            ))}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <Truck size={18} color="#1b3b2b" />
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>Fast & Free Shipping</div>
+                  <div style={{ fontSize: '11.5px', color: '#6b7280' }}>On orders over ₹999</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <ShieldCheck size={18} color="#1b3b2b" />
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>30-Day Money Back</div>
+                  <div style={{ fontSize: '11.5px', color: '#6b7280' }}>No questions asked</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <Lock size={18} color="#1b3b2b" />
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>Secure & Safe Checkout</div>
+                  <div style={{ fontSize: '11.5px', color: '#6b7280' }}>Your data is protected</div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
-      )}
 
+        {/* 5. Clean Newsletter Subscribe Bar (Minimog Style) */}
+        {/* <section style={{ marginBottom: '40px' }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '20px',
+            flexWrap: 'wrap',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '6px',
+                backgroundColor: '#f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#111827',
+              }}>
+                <Mail size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>Sign up for our newsletter</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Receive exclusive offers and new collection releases</div>
+              </div>
+            </div>
+
+            <form onSubmit={handleNewsletterSubmit} style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '440px' }}>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                required
+                style={{
+                  flex: 1,
+                  height: '38px',
+                  padding: '0 12px',
+                  borderRadius: '4px',
+                  border: '1px solid #e5e7eb',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  height: '38px',
+                  padding: '0 20px',
+                  backgroundColor: '#1b3b2b',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {newsletterSubscribed ? 'Subscribed!' : 'Subscribe'}
+              </button>
+            </form>
+          </div>
+        </section> */}
+
+        {/* 6. What Our Patrons Say (Customer Reviews) */}
+        {testimonials.length > 0 && (
+          <section style={{ marginBottom: '30px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '18px',
+            }}>
+              <h2 style={{
+                fontSize: '22px',
+                fontWeight: 800,
+                color: '#111827',
+                margin: 0,
+              }}>
+                What Our Customers Say
+              </h2>
+
+              {testimonials.length > 3 && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => scrollTestimonials('left')}
+                    aria-label="Previous Reviews"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      border: '1px solid #e5e7eb',
+                      backgroundColor: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#111827',
+                    }}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollTestimonials('right')}
+                    aria-label="Next Reviews"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      border: '1px solid #e5e7eb',
+                      backgroundColor: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#111827',
+                    }}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div
+              ref={testimonialScrollRef}
+              style={{
+                display: 'flex',
+                flexWrap: 'nowrap',
+                gap: '16px',
+                overflowX: 'auto',
+                scrollSnapType: 'x mandatory',
+                scrollBehavior: 'smooth',
+                paddingBottom: '8px',
+              }}
+            >
+              {testimonials.map((t) => (
+                <div
+                  key={t.id}
+                  style={{
+                    flex: '0 0 280px',
+                    minWidth: '260px',
+                    scrollSnapAlign: 'start',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '10px' }}>
+                      {[...Array(t.rating || 5)].map((_, i) => (
+                        <Star key={i} size={13} fill="#fbbf24" color="#fbbf24" />
+                      ))}
+                    </div>
+                    <p style={{
+                      fontSize: '13px',
+                      color: '#374151',
+                      lineHeight: 1.5,
+                      margin: 0,
+                    }}>
+                      “{t.quote}”
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {t.avatar_url && (
+                      <img
+                        src={t.avatar_url}
+                        alt={t.name}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    )}
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{t.name}</div>
+                      {t.location && (
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.location}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 };

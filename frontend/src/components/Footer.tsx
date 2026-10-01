@@ -2,16 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Category, FooterConfig } from '../types';
 import { api } from '../services/api';
 import {
+  ShoppingBag,
   Mail,
-  ShieldCheck,
-  Truck,
-  RefreshCw,
-  Award,
-  Sparkles,
-  Package,
-  Clock,
-  Gem,
-  CheckCircle2
+  CheckCircle2,
+  MapPin,
+  Phone
 } from 'lucide-react';
 
 interface FooterProps {
@@ -19,31 +14,6 @@ interface FooterProps {
   onSelectCategory?: (categoryId: number) => void;
   config?: FooterConfig;
 }
-
-const DEFAULT_BADGES = [
-  {
-    icon: 'truck',
-    title: 'Free Global Insured Delivery',
-    subtitle: 'Climate-controlled custom art crates',
-  },
-  {
-    icon: 'shield',
-    title: '100% Authenticity Guarantee',
-    subtitle: 'Signed certificate with forensic provenance',
-  },
-  {
-    icon: 'refresh',
-    title: '30-Day Curated Return Window',
-    subtitle: 'Risk-free visual trial in your residence',
-  },
-];
-
-const DEFAULT_LINKS = [
-  { title: 'Direct WhatsApp Advisory', url: '#' },
-  { title: 'Custom Bespoke Framing', url: '#' },
-  { title: 'Art Authentication Registry', url: '#' },
-  { title: 'White-Glove Courier Setup', url: '#' },
-];
 
 export const Footer: React.FC<FooterProps> = ({
   categories = [],
@@ -72,202 +42,160 @@ export const Footer: React.FC<FooterProps> = ({
     setTimeout(() => setNewsletterSubscribed(false), 5000);
   };
 
-  const renderBadgeIcon = (iconName: string) => {
-    const key = (iconName || '').toLowerCase().trim();
-    switch (key) {
-      case 'truck':
-      case 'shipping':
-      case 'delivery':
-        return <Truck size={32} />;
-      case 'shield':
-      case 'shieldcheck':
-      case 'guarantee':
-        return <ShieldCheck size={32} />;
-      case 'refresh':
-      case 'returns':
-      case 'return':
-      case 'refreshcw':
-        return <RefreshCw size={32} />;
-      case 'award':
-        return <Award size={32} />;
-      case 'sparkles':
-        return <Sparkles size={32} />;
-      case 'package':
-      case 'box':
-        return <Package size={32} />;
-      case 'clock':
-        return <Clock size={32} />;
-      case 'gem':
-      case 'diamond':
-        return <Gem size={32} />;
-      default:
-        return <Truck size={32} />;
-    }
-  };
-
-  // Resolve config or fallback values
-  const brandName = footerConfig?.brand_name || 'shopbypriya';
-  const brandSubtitle = footerConfig?.brand_subtitle || 'HANDCRAFTED SILK & READY-TO-SHIP BLOUSES';
+  const brandName = footerConfig?.brand_name || 'Minimog';
+  const brandSubtitle = footerConfig?.brand_subtitle || 'Shopify Store';
   const brandDescription = footerConfig?.brand_description ||
-    'Atelier blouses for sarees. Ready-made and made to measure.';
-  const studioLocation = footerConfig?.studio_location || 'Studio: Mumbai & Chennai, India';
-  const contactPhone = footerConfig?.contact_phone || '+91 98765 43210';
-  const contactEmail = footerConfig?.contact_email || 'hello@shopbypriya.com';
-  const showPayment = footerConfig?.show_payment_methods ?? false;
-  const paymentImageUrl = footerConfig?.payment_image_url || '';
-  
-  const badges = footerConfig?.feature_badges?.length ? footerConfig.feature_badges : DEFAULT_BADGES;
-  const categoriesTitle = footerConfig?.categories_title || 'CURATED CATEGORIES';
-  const maxCategories = footerConfig?.max_categories_to_show ?? 7;
-  const displayedCategories = categories.slice(0, maxCategories);
-
-  const customTitle = footerConfig?.custom_column_title || 'CURATION DESK';
-  const customLinks = footerConfig?.custom_links?.length ? footerConfig.custom_links : DEFAULT_LINKS;
-
-  const newsletterTitle = footerConfig?.newsletter_title || 'NEWSLETTER';
-  const newsletterDesc = footerConfig?.newsletter_description ||
-    'Be the first to know about new arrivals, private salon exhibitions & exclusive sales!';
-  const newsletterPlaceholder = footerConfig?.newsletter_placeholder || 'Your email';
-
+    'Quality products, unmatched style, and exceptional customer service. Transforming modern lifestyle spaces one curated piece at a time.';
+  const studioLocation = footerConfig?.studio_location || '';
+  const contactPhone = footerConfig?.contact_phone || '';
+  const contactEmail = footerConfig?.contact_email || '';
   const copyrightText = footerConfig?.copyright_text ||
-    'Copyright © 2026 All rights reserved | Art Gallery Curations & Studio';
+    `© ${new Date().getFullYear()} Minimog Store. Powered by Minimog Shopify. All rights reserved.`;
+
+  const maxCategories = footerConfig?.max_categories_to_show ?? 6;
+  const displayedCategories = categories.slice(0, maxCategories);
 
   return (
     <footer id="site-footer" style={{
-      backgroundColor: '#111111',
-      color: '#b7b7b7',
-      padding: '70px 24px 30px',
-      fontFamily: "'Nunito Sans', sans-serif",
+      backgroundColor: '#ffffff',
+      color: '#4b5563',
+      borderTop: '1px solid #e5e7eb',
+      padding: '64px 24px 32px',
+      fontFamily: "'Roboto Condensed', sans-serif",
     }}>
-      {/* 1. Value Props Banner (Shipping, Returns, Authenticity) */}
-      <div style={{
-        maxWidth: '1280px',
-        margin: '0 auto 60px',
-        paddingBottom: '40px',
-        borderBottom: '1px solid #222222',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '30px',
-      }}>
-        {badges.map((b, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ color: '#e53637', flexShrink: 0 }}>
-              {renderBadgeIcon(b.icon)}
-            </div>
-            <div>
-              <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '15px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {b.title}
-              </div>
-              <div style={{ fontSize: '13px', color: '#888888', marginTop: '4px' }}>
-                {b.subtitle}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 2. Main Footer Columns */}
       <div style={{
         maxWidth: '1280px',
         margin: '0 auto',
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         gap: '40px',
-        marginBottom: '60px',
+        marginBottom: '48px',
       }}>
-        {/* Brand Col */}
-        <div style={{ maxWidth: '340px' }}>
-          <div style={{
-            fontSize: '32px',
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontWeight: 700,
-            color: '#ffffff',
-            letterSpacing: '-0.02em',
-            marginBottom: '12px',
-            lineHeight: 1.15,
-          }}>
-            {brandName}
+        {/* Brand Column */}
+        <div style={{ maxWidth: '280px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              backgroundColor: '#1b3b2b',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff'
+            }}>
+              <ShoppingBag size={18} />
+            </div>
+            <div>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: '#111827',
+                letterSpacing: '-0.02em',
+                lineHeight: 1,
+              }}>
+                {brandName}
+              </div>
+              {brandSubtitle && (
+                <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, letterSpacing: '0.02em', marginTop: '2px' }}>
+                  {brandSubtitle}
+                </div>
+              )}
+            </div>
           </div>
 
-          {brandSubtitle && (
-            <div style={{
-              fontSize: '12px',
-              fontWeight: 800,
-              color: '#f59e0b',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              marginBottom: '16px',
-              lineHeight: 1.4,
-            }}>
-              {brandSubtitle}
-            </div>
-          )}
-
           <p style={{
-            fontSize: '14px',
+            fontSize: '13.5px',
             lineHeight: 1.6,
-            color: '#9ca3af',
+            color: '#6b7280',
             marginBottom: '20px',
-            fontWeight: 400,
           }}>
             {brandDescription}
           </p>
 
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '11px',
-            fontSize: '13.5px',
-            color: '#e5e7eb',
-          }}>
-            {studioLocation && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', lineHeight: 1 }}>📍</span>
-                <span style={{ color: '#d1d5db' }}>{studioLocation}</span>
-              </div>
-            )}
-
-            {contactPhone && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', lineHeight: 1 }}>📞</span>
-                <span style={{ color: '#d1d5db' }}>
-                  {contactPhone.startsWith('Concierge:') ? contactPhone : `Concierge: ${contactPhone}`}
-                </span>
-              </div>
-            )}
-
-            {contactEmail && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', lineHeight: 1 }}>✉️</span>
-                <span style={{ color: '#d1d5db' }}>
-                  {contactEmail.startsWith('Email:') ? (
-                    contactEmail
-                  ) : (
-                    <>Email: <a href={`mailto:${contactEmail}`} style={{ color: 'inherit', textDecoration: 'none' }}>{contactEmail}</a></>
-                  )}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {showPayment && paymentImageUrl && (
-            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-              <img
-                src={paymentImageUrl}
-                alt="Payment methods"
-                style={{ maxHeight: '26px', opacity: 0.8 }}
-                onError={(e) => (e.currentTarget.style.display = 'none')}
-              />
+          {(studioLocation || contactPhone || contactEmail) && (
+            <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+              {studioLocation && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={14} color="#1b3b2b" /> <span>{studioLocation}</span>
+                </div>
+              )}
+              {contactPhone && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={14} color="#1b3b2b" /> <span>{contactPhone}</span>
+                </div>
+              )}
+              {contactEmail && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={14} color="#1b3b2b" /> <span>{contactEmail}</span>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Social Links */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <a href="#facebook" aria-label="Facebook" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
+               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+            </a>
+            <a href="#instagram" aria-label="Instagram" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
+               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
+            </a>
+            <a href="#twitter" aria-label="Twitter" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
+               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>
+            </a>
+          </div>
         </div>
 
-        {/* Dynamic Categories from Database */}
+        {/* Shop Column */}
         <div>
-          <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>
-            {categoriesTitle}
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
+            Shop
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <li>
+              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                All Products
+              </a>
+            </li>
+            <li>
+              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Best Sellers
+              </a>
+            </li>
+            <li>
+              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                New Arrivals
+              </a>
+            </li>
+            <li>
+              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Gift Cards
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        {/* Collections Column */}
+        <div>
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
+            Collections
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {displayedCategories.length > 0 ? (
               displayedCategories.map((cat) => (
                 <li key={cat.id}>
@@ -279,9 +207,9 @@ export const Footer: React.FC<FooterProps> = ({
                         onSelectCategory(cat.id);
                       }
                     }}
-                    style={{ color: '#888888', textDecoration: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#888888')}
+                    style={{ color: '#4b5563', textDecoration: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}
                   >
                     {cat.name}
                   </a>
@@ -289,121 +217,196 @@ export const Footer: React.FC<FooterProps> = ({
               ))
             ) : (
               <>
-                <li><a href="#gallery-catalog" style={{ color: '#888888', textDecoration: 'none' }}>Original Paintings</a></li>
-                <li><a href="#gallery-catalog" style={{ color: '#888888', textDecoration: 'none' }}>Fine Art Curations</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Men's Fashion</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Women's Fashion</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Footwear</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Accessories</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Home & Living</a></li>
               </>
             )}
           </ul>
         </div>
 
-        {/* Customer Care / Custom Column */}
+        {/* Customer Service Column */}
         <div>
-          <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>
-            {customTitle}
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
+            Customer Service
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {customLinks.map((link, idx) => (
-              <li key={idx}>
-                {link.url && link.url !== '#' ? (
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: '#888888', textDecoration: 'none', transition: 'color 0.2s' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#888888')}
-                  >
-                    {link.title}
-                  </a>
-                ) : (
-                  <span
-                    style={{ color: '#888888', cursor: 'default', transition: 'color 0.2s' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#888888')}
-                  >
-                    {link.title}
-                  </span>
-                )}
-              </li>
-            ))}
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <li>
+              <a href="#contact" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Contact Us
+              </a>
+            </li>
+            <li>
+              <a href="#faq" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                FAQs
+              </a>
+            </li>
+            <li>
+              <a href="#shipping" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Shipping Policy
+              </a>
+            </li>
+            <li>
+              <a href="#returns" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Return Policy
+              </a>
+            </li>
+            <li>
+              <a href="#track-order" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Track Your Order
+              </a>
+            </li>
           </ul>
         </div>
 
-        {/* Newsletter */}
+        {/* Company Column */}
         <div>
-          <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>
-            {newsletterTitle}
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
+            Company
           </div>
-          <p style={{ fontSize: '14px', color: '#888888', marginBottom: '16px', lineHeight: 1.6 }}>
-            {newsletterDesc}
-          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <li>
+              <a href="#about" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                About Us
+              </a>
+            </li>
+            <li>
+              <a href="#blog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Our Blog
+              </a>
+            </li>
+            <li>
+              <a href="#careers" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Careers
+              </a>
+            </li>
+            <li>
+              <a href="#privacy" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Privacy Policy
+              </a>
+            </li>
+            <li>
+              <a href="#terms" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                Terms of Service
+              </a>
+            </li>
+          </ul>
+        </div>
 
-          {newsletterSubscribed ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 14px',
-              backgroundColor: 'rgba(22, 101, 52, 0.2)',
-              border: '1px solid #166534',
-              borderRadius: '6px',
-              color: '#4ade80',
-              fontSize: '13px',
-              fontWeight: 600
-            }}>
-              <CheckCircle2 size={16} /> Thank you for subscribing!
+        {/* Payment Methods */}
+        <div>
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
+            Payment Methods
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#1e3a8a', border: '1px solid #e5e7eb' }}>
+              VISA
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#ea580c', border: '1px solid #e5e7eb' }}>
+              Mastercard
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#0284c7', border: '1px solid #e5e7eb' }}>
+              PayPal
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#111827', border: '1px solid #e5e7eb' }}>
+               Pay
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#059669', border: '1px solid #e5e7eb' }}>
+              UPI / NetBanking
+            </span>
+          </div>
+
+          {/* Quick Newsletter in footer */}
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+              Subscribe for 10% Off
             </div>
-          ) : (
-            <form onSubmit={handleSubscribe} style={{ display: 'flex', borderBottom: '2px solid #333333' }}>
-              <input
-                type="email"
-                required
-                placeholder={newsletterPlaceholder}
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  outline: 'none',
-                  color: '#ffffff',
-                  padding: '12px 0',
-                  fontSize: '14px',
-                  width: '100%',
-                  fontFamily: 'inherit',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  padding: '0 8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title="Subscribe"
-              >
-                <Mail size={18} color="#e53637" />
-              </button>
-            </form>
-          )}
+            {newsletterSubscribed ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
+                <CheckCircle2 size={14} /> Subscribed!
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} style={{ display: 'flex', maxWidth: '240px' }}>
+                <input
+                  type="email"
+                  required
+                  placeholder="Enter email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRight: 'none',
+                    borderRadius: '4px 0 0 4px',
+                    outline: 'none',
+                    fontFamily: 'inherit'
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: '#1b3b2b',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    borderRadius: '0 4px 4px 0',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  Join
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 3. Copyright bottom */}
+      {/* Copyright row */}
       <div style={{
         maxWidth: '1280px',
         margin: '0 auto',
-        paddingTop: '25px',
-        borderTop: '1px solid #222222',
-        textAlign: 'center',
+        paddingTop: '24px',
+        borderTop: '1px solid #f3f4f6',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '12px',
         fontSize: '13px',
-        color: '#666666',
+        color: '#9ca3af',
       }}>
-        {copyrightText}
+        <div>{copyrightText}</div>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <a href="#privacy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy Policy</a>
+          <a href="#terms" style={{ color: 'inherit', textDecoration: 'none' }}>Terms of Service</a>
+          <a href="#sitemap" style={{ color: 'inherit', textDecoration: 'none' }}>Sitemap</a>
+        </div>
       </div>
     </footer>
   );

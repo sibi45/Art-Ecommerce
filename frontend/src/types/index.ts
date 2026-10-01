@@ -101,6 +101,18 @@ export interface Banner {
   updated_at: string;
 }
 
+export interface ShowcaseItem {
+  id: number;
+  image_url: string;
+  title?: string | null;
+  tag?: string | null;
+  description?: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface ProductSection {
   id: number;
   name: string;

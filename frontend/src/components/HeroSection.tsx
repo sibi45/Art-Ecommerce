@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Banner } from '../types';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 
 interface HeroSectionProps {
   banners?: Banner[];
@@ -30,7 +30,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     setTimeout(() => {
       setIsTransitioning(false);
       setPrevSlideIndex(null);
-    }, 750);
+    }, 600);
   };
 
   const handlePrev = () => {
@@ -43,14 +43,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     goToSlide(nextIdx, 'next');
   };
 
-  // Smooth automatic rotation every 5 seconds
+  // Smooth automatic rotation every 6 seconds
   useEffect(() => {
     if (totalSlides <= 1 || isPaused) return;
 
     const timer = setInterval(() => {
       const nextIdx = currentSlideIndex === totalSlides - 1 ? 0 : currentSlideIndex + 1;
       goToSlide(nextIdx, 'next');
-    }, 5000);
+    }, 6000);
 
     return () => clearInterval(timer);
   }, [totalSlides, isPaused, currentSlideIndex, isTransitioning]);
@@ -60,95 +60,86 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   }
 
   const activeBanner = banners[currentSlideIndex] || banners[0];
-  const bannerBg = activeBanner?.bg_color || '#0062d2';
-  const textColor = activeBanner?.text_color || '#ffffff';
+  if (!activeBanner) return null;
 
-  const isDarkText = ['#111111', '#09090b', '#000000', '#1c1917', '#27272a', '#1e293b', '#334155']
-    .includes(textColor.toLowerCase());
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(price || 0);
-  };
+  const displayTitle = activeBanner.title || '';
+  const displayTag = activeBanner.tag || '';
+  const displayDesc = activeBanner.description || '';
 
   return (
     <section
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       style={{
+        backgroundColor: '#f3f2ee',
+        fontFamily: "'Roboto Condensed', sans-serif",
         position: 'relative',
-        backgroundColor: bannerBg,
-        background: `radial-gradient(circle at 75% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%), linear-gradient(135deg, ${bannerBg} 0%, ${bannerBg} 100%)`,
-        transition: 'all 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
-        minHeight: '520px',
-        display: 'flex',
-        alignItems: 'center',
         overflow: 'hidden',
-        color: textColor,
+        borderBottom: '1px solid #e5e7eb',
       }}
     >
-      <div className="responsive-hero-container" style={{
+      <div style={{
         maxWidth: '1380px',
-        width: '100%',
         margin: '0 auto',
-        padding: '54px 32px',
-        position: 'relative',
-        zIndex: 2,
+        padding: '50px 24px 36px',
       }}>
-        <div className="responsive-hero-grid" style={{
+        {/* Main Hero Grid */}
+        <div style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)',
           alignItems: 'center',
-          gap: '48px',
-        }}>
-          {/* Left Side: Typography, CTA & Slide Controls */}
-          <div>
-            {/* Tag / Category */}
-            {activeBanner.tag && (
-              <div style={{
-                color: textColor,
-                fontSize: '12px',
-                fontWeight: 800,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                marginBottom: '14px',
-                opacity: 0.9,
-              }}>
-                {activeBanner.tag}
-              </div>
-            )}
+          gap: '40px',
+        }} className="responsive-hero-grid">
 
-            {/* Main Headline (Editorial Serif Typography) */}
-            <h1 style={{
-              fontSize: 'clamp(2.4rem, 4.4vw, 3.6rem)',
-              fontWeight: 800,
-              lineHeight: 1.15,
-              color: textColor,
-              marginBottom: '18px',
-              letterSpacing: '-0.01em',
-              fontFamily: "'Playfair Display', Georgia, serif",
+          {/* Left Column: Minimog Style Copy & CTAs */}
+          <div>
+            {/* Pill Badge */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '20px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: '#374151',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
-              {activeBanner.title || 'Masterpieces, considered.'}
+              <span>✨</span> {displayTag}
+            </div>
+
+            {/* Headline */}
+            <h1 style={{
+              fontSize: 'clamp(2.4rem, 4.2vw, 3.8rem)',
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: '#111827',
+              marginBottom: '16px',
+              letterSpacing: '-0.02em',
+              fontFamily: "'Roboto Condensed', sans-serif",
+            }}>
+              {displayTitle}
             </h1>
 
-            {/* Subtitle Description */}
+            {/* Subheading */}
             <p style={{
-              fontSize: '15px',
-              lineHeight: 1.65,
-              color: textColor,
-              opacity: 0.85,
-              marginBottom: '32px',
+              fontSize: '16px',
+              lineHeight: 1.6,
+              color: '#4b5563',
+              marginBottom: '28px',
               maxWidth: '520px',
               fontWeight: 400,
             }}>
-              {activeBanner.description || 'Original handcrafted artworks in oil, acrylic, and mixed media fine art created by verified master artists.'}
+              {displayDesc}
             </p>
 
-            {/* CTA Button */}
-            <div style={{ marginBottom: '36px' }}>
+            {/* Action Buttons (Minimog Green + Outline) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '38px' }}>
               <button
                 type="button"
                 onClick={onExploreClick}
@@ -156,211 +147,140 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  backgroundColor: isDarkText ? '#09090b' : '#ffffff',
-                  color: isDarkText ? '#ffffff' : (bannerBg.toLowerCase() === '#ffffff' ? '#09090b' : bannerBg),
+                  backgroundColor: '#1b3b2b',
+                  color: '#ffffff',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  padding: '13px 28px',
+                  borderRadius: '4px',
                   border: 'none',
-                  borderRadius: '6px',
-                  padding: '14px 28px',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
                   cursor: 'pointer',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(27, 59, 43, 0.25)',
+                  transition: 'background-color 0.15s ease',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#132a1e')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1b3b2b')}
+              >
+                {activeBanner.button_text || 'Shop Now'} <ArrowRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={onExploreClick}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  padding: '12px 26px',
+                  borderRadius: '4px',
+                  border: '1px solid #111827',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'inherit',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.28)';
+                  e.currentTarget.style.backgroundColor = '#111827';
+                  e.currentTarget.style.color = '#ffffff';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.color = '#111827';
                 }}
               >
-                {activeBanner.button_text || 'SHOP NOW'} <span>&rarr;</span>
+                Explore Collections
               </button>
             </div>
+          </div>
 
-            {/* Slide Pagination & Navigation Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-              {/* Active Pill Indicator & Dots */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {banners.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => goToSlide(idx)}
-                    style={{
-                      height: '5px',
-                      width: idx === currentSlideIndex ? '28px' : '6px',
-                      borderRadius: '4px',
-                      backgroundColor: idx === currentSlideIndex 
-                        ? (isDarkText ? '#09090b' : '#f59e0b') 
-                        : (isDarkText ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.4)'),
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                      transition: 'all 0.3s ease',
-                    }}
-                  />
-                ))}
-              </div>
+          {/* Right Column: Visual Showcase */}
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
 
-              {/* Counter: 01 / 03 */}
+            {/* Main Product/Banner Image */}
+            <div style={{
+              width: '100%',
+              maxWidth: '480px',
+              height: '420px',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+              backgroundColor: '#ffffff',
+              position: 'relative',
+            }}>
+              {activeBanner.image_url && (
+                <img
+                  src={activeBanner.image_url}
+                  alt={activeBanner.title || 'Curated Artwork'}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                    transition: 'transform 0.4s ease',
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Slider arrows if multiple banners */}
+            {totalSlides > 1 && (
               <div style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: textColor,
-                opacity: 0.9,
-                letterSpacing: '0.08em',
-                fontFamily: 'monospace',
+                position: 'absolute',
+                bottom: '16px',
+                right: '24px',
+                display: 'flex',
+                gap: '8px',
+                zIndex: 10,
               }}>
-                {(currentSlideIndex + 1).toString().padStart(2, '0')} / {totalSlides.toString().padStart(2, '0')}
-              </div>
-
-              {/* Navigation Arrows < > */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
                   type="button"
                   onClick={handlePrev}
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '50%',
-                    backgroundColor: isDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)',
-                    border: isDarkText ? '1px solid rgba(0, 0, 0, 0.15)' : '1px solid rgba(255, 255, 255, 0.25)',
-                    color: textColor,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    color: '#111827',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDarkText ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.28)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)')}
+                  title="Previous slide"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 <button
                   type="button"
                   onClick={handleNext}
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '50%',
-                    backgroundColor: isDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)',
-                    border: isDarkText ? '1px solid rgba(0, 0, 0, 0.15)' : '1px solid rgba(255, 255, 255, 0.25)',
-                    color: textColor,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    color: '#111827',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDarkText ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.28)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)')}
+                  title="Next slide"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Right Side: Artwork Card with Backdrop Circle (Matching Gallery Signature Design) */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            position: 'relative',
-            minHeight: '440px',
-          }}>
-            {/* Backdrop Circle */}
-            <div style={{
-              position: 'absolute',
-              width: '320px',
-              height: '320px',
-              borderRadius: '50%',
-              backgroundColor: activeBanner.circle_color || '#ea580c',
-              transition: 'background-color 0.5s ease',
-            }} />
-
-            {/* Floating Artwork Museum Card */}
-            <div
-              onClick={onExploreClick}
-              style={{
-                position: 'relative',
-                zIndex: 2,
-                width: '270px',
-                backgroundColor: '#ffffff',
-                border: '5px solid #ffffff',
-                boxShadow: '0 20px 48px rgba(0,0,0,0.25)',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                transition: 'transform 0.4s ease, box-shadow 0.4s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-                e.currentTarget.style.boxShadow = '0 28px 60px rgba(0,0,0,0.32)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 20px 48px rgba(0,0,0,0.25)';
-              }}
-            >
-              <img
-                src={activeBanner.image_url}
-                alt={activeBanner.title}
-                style={{
-                  width: '100%',
-                  height: '270px',
-                  objectFit: 'cover',
-                  display: 'block',
-                }}
-              />
-              <div style={{
-                padding: '12px 14px',
-                backgroundColor: '#ffffff',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <div style={{ maxWidth: '150px' }}>
-                  <div style={{
-                    fontSize: '10px',
-                    color: '#71717a',
-                    textTransform: 'uppercase',
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {activeBanner.artist_name || 'Master Artist'}
-                  </div>
-                  <div style={{
-                    fontSize: '13px',
-                    fontWeight: 800,
-                    color: '#09090b',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {activeBanner.title}
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: '#e11d48',
-                }}>
-                  {formatPrice(activeBanner.price)}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
+
+
       </div>
     </section>
   );

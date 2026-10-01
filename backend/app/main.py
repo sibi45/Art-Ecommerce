@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import User, Category, Painting, ProductSection, Testimonial, FooterConfig
 from app.security import get_password_hash
-from app.routers import auth, paintings, inquiries, admin, banners, sections, testimonials, footer
+from app.routers import auth, paintings, inquiries, admin, banners, sections, testimonials, footer, showcases
 
 # Automatic table creation & default data seed on startup
 def init_db_and_seed():
@@ -67,6 +67,18 @@ def init_db_and_seed():
                 ALTER TABLE footer_config ADD COLUMN IF NOT EXISTS brand_subtitle VARCHAR(200);
                 ALTER TABLE footer_config ADD COLUMN IF NOT EXISTS studio_location VARCHAR(200);
                 ALTER TABLE product_sections ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);
+
+                CREATE TABLE IF NOT EXISTS showcase_items (
+                    id SERIAL PRIMARY KEY,
+                    image_url TEXT NOT NULL,
+                    title VARCHAR(200),
+                    tag VARCHAR(100) DEFAULT 'FEATURED',
+                    description TEXT,
+                    display_order INTEGER DEFAULT 1 NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (NOW() AT TIME ZONE 'utc'),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (NOW() AT TIME ZONE 'utc')
+                );
             """))
             conn.commit()
     except Exception as me:
@@ -89,6 +101,20 @@ def init_db_and_seed():
                 is_active=True
             )
             db.add(admin_user)
+
+        # 2. Seed default "Trending Products" section if not present
+        trending_sec = db.query(ProductSection).filter(
+            (ProductSection.slug == "trending-products") | (ProductSection.name == "Trending Products")
+        ).first()
+        if not trending_sec:
+            trending_sec = ProductSection(
+                name="Trending Products",
+                slug="trending-products",
+                description="Our most sought-after artworks and trending collector pieces.",
+                display_order=1,
+                is_active=True
+            )
+            db.add(trending_sec)
 
         db.commit()
     except Exception as e:
@@ -135,6 +161,7 @@ app.include_router(banners.router, prefix=settings.API_V1_STR)
 app.include_router(sections.router, prefix=settings.API_V1_STR)
 app.include_router(testimonials.router, prefix=settings.API_V1_STR)
 app.include_router(footer.router, prefix=settings.API_V1_STR)
+app.include_router(showcases.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

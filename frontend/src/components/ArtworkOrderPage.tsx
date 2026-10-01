@@ -112,10 +112,10 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
     }
   };
 
-  const formatPrice = (price: number, currency: string = 'INR') => {
+  const formatPrice = (price: number, _currency?: string) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: currency || 'INR',
+      currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
   };
@@ -693,7 +693,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               color: '#09090b',
               margin: '0 0 8px 0',
               lineHeight: 1.25,
-              fontFamily: "'Nunito Sans', sans-serif",
+              fontFamily: "'Roboto Condensed', sans-serif",
             }}>
               {painting.title}
             </h1>
@@ -740,12 +740,12 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '36px', fontWeight: 900, color: '#09090b', fontFamily: "'Nunito Sans', sans-serif" }}>
+                <span style={{ fontSize: '36px', fontWeight: 900, color: '#09090b', fontFamily: "'Roboto Condensed', sans-serif" }}>
                   {formatPrice(painting.price, painting.currency)}
                 </span>
                 {painting.mrp && Number(painting.mrp) > Number(painting.price) && (
                   <>
-                    <span style={{ fontSize: '20px', color: '#94a3b8', textDecoration: 'line-through', fontFamily: "'Nunito Sans', sans-serif" }}>
+                    <span style={{ fontSize: '20px', color: '#94a3b8', textDecoration: 'line-through', fontFamily: "'Roboto Condensed', sans-serif" }}>
                       {formatPrice(painting.mrp, painting.currency)}
                     </span>
                     <span style={{ fontSize: '13px', fontWeight: 800, color: '#16a34a', backgroundColor: '#dcfce7', padding: '3px 8px', borderRadius: '4px' }}>

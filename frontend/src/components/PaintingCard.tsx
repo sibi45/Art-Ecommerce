@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Painting } from '../types';
-import { Heart } from 'lucide-react';
+import { Heart, ShoppingBag } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 
 interface PaintingCardProps {
@@ -12,24 +12,24 @@ interface PaintingCardProps {
 export const PaintingCard: React.FC<PaintingCardProps> = ({
   painting,
   onViewDetails,
+  onInquire,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const { isInWishlist, toggleWishlist } = useWishlist();
   const isFavorite = isInWishlist(painting.id);
 
-  const formatPrice = (price: number, currency: string = 'INR') => {
+  const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: currency || 'INR',
+      currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
   };
 
-  // Use entered MRP for struck-out original price (not auto-calculated)
   const hasDiscount = Boolean(painting.mrp && Number(painting.mrp) > Number(painting.price));
-  const discountPercent = hasDiscount && painting.mrp
-    ? Math.round(((Number(painting.mrp) - Number(painting.price)) / Number(painting.mrp)) * 100)
-    : 0;
+  const isSale = hasDiscount || painting.featured;
+  const isNew = painting.id % 3 === 0;
+
 
   return (
     <div
@@ -41,23 +41,24 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
         flexDirection: 'column',
         backgroundColor: '#ffffff',
         borderRadius: '8px',
-        border: '1px solid #f1f5f9',
+        border: '1px solid #f3f4f6',
         overflow: 'hidden',
         cursor: 'pointer',
-        transition: 'transform 0.25s ease, box-shadow 0.25s ease',
-        transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: isHovered ? '0 12px 28px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.02)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: isHovered ? '0 10px 24px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.02)',
+        fontFamily: "'Roboto Condensed', sans-serif",
       }}
     >
-      {/* 1. Image Area with Badges & Wishlist (Matching Images 3 & 4) */}
+      {/* 1. Image Area with Badges & Wishlist (Minimog Style) */}
       <div style={{
         position: 'relative',
         width: '100%',
-        paddingTop: '125%', // Tall vertical product aspect ratio
-        backgroundColor: '#f8fafc',
+        paddingTop: '110%',
+        backgroundColor: '#f9fafb',
         overflow: 'hidden',
       }}>
-        {/* Top-Left Badges (Matching Images 3 & 4) */}
+        {/* Top-Left Badges (Minimog Green / Dark Badges) */}
         <div style={{
           position: 'absolute',
           top: '10px',
@@ -67,40 +68,36 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
           flexDirection: 'column',
           gap: '4px',
         }}>
-          {/* Badge 1: READY TO SHIP */}
-          <span style={{
-            backgroundColor: '#fef3c7',
-            color: '#854d0e',
-            fontSize: '9.5px',
-            fontWeight: 800,
-            padding: '2.5px 7px',
-            borderRadius: '3px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          }}>
-            READY TO SHIP
-          </span>
-
-          {/* Badge 2: X% OFF only when MRP is provided and greater than selling price */}
-          {hasDiscount && (
+          {isSale ? (
             <span style={{
-              backgroundColor: '#e11d48',
+              backgroundColor: '#1b3b2b',
               color: '#ffffff',
-              fontSize: '9.5px',
-              fontWeight: 800,
+              fontSize: '10px',
+              fontWeight: 700,
               padding: '2.5px 7px',
               borderRadius: '3px',
               textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              letterSpacing: '0.04em',
             }}>
-              {discountPercent}% OFF
+              Sale
             </span>
-          )}
+          ) : isNew ? (
+            <span style={{
+              backgroundColor: '#166534',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 700,
+              padding: '2.5px 7px',
+              borderRadius: '3px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}>
+              New
+            </span>
+          ) : null}
         </div>
 
-        {/* Top-Right: Wishlist Heart Circle (Matching Images 3 & 4) */}
+        {/* Top-Right: Wishlist Heart Circle */}
         <button
           type="button"
           onClick={(e) => {
@@ -113,8 +110,8 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
             top: '10px',
             right: '10px',
             zIndex: 3,
-            width: '30px',
-            height: '30px',
+            width: '28px',
+            height: '28px',
             borderRadius: '50%',
             backgroundColor: '#ffffff',
             border: 'none',
@@ -122,14 +119,14 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
             transition: 'transform 0.15s ease',
           }}
         >
-          <Heart size={15} fill={isFavorite ? '#e11d48' : 'none'} color={isFavorite ? '#e11d48' : '#64748b'} />
+          <Heart size={14} fill={isFavorite ? '#1b3b2b' : 'none'} color={isFavorite ? '#1b3b2b' : '#6b7280'} />
         </button>
 
-        {/* Artwork Image */}
+        {/* Product Image */}
         <img
           src={painting.image_url}
           alt={painting.title}
@@ -141,74 +138,75 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
             height: '100%',
             objectFit: 'cover',
             display: 'block',
-            transition: 'transform 0.5s ease',
+            transition: 'transform 0.4s ease',
             transform: isHovered ? 'scale(1.04)' : 'scale(1)',
           }}
         />
       </div>
 
-      {/* 2. Card Info Area (Matching Images 3 & 4) */}
-      <div style={{ padding: '14px 14px 16px' }}>
-        {/* Atelier / Artist label */}
-        <div style={{
-          fontSize: '10.5px',
-          fontWeight: 700,
-          color: '#64748b',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          marginBottom: '4px',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          ARTGALLERY ATELIER • {painting.artist_name || 'Master Artist'}
-        </div>
-
-        {/* Artwork Title */}
+      {/* 2. Card Info Area (Minimog Style) */}
+      <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {/* Title */}
         <h3 style={{
-          fontSize: '14px',
-          fontWeight: 600,
-          color: '#09090b',
-          margin: '0 0 8px 0',
-          lineHeight: 1.35,
+          fontSize: '14.5px',
+          fontWeight: 700,
+          color: '#111827',
+          margin: '0 0 6px 0',
+          lineHeight: 1.3,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          fontFamily: 'inherit',
         }}>
           {painting.title}
         </h3>
 
-        {/* Price Row: Bold Price, Strikethrough MRP, Discount % */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: '16px',
-            fontWeight: 800,
-            color: '#09090b',
-            fontFamily: "'Nunito Sans', sans-serif",
-          }}>
-            {formatPrice(painting.price, painting.currency)}
-          </span>
+        {/* Price & Action Row (Clean, No Hardcoded Ratings) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{
+              fontSize: '15.5px',
+              fontWeight: 800,
+              color: '#111827',
+            }}>
+              {formatPrice(painting.price)}
+            </span>
 
-          {hasDiscount && painting.mrp && (
-            <>
+            {hasDiscount && painting.mrp && (
               <span style={{
                 fontSize: '12px',
-                color: '#94a3b8',
+                color: '#9ca3af',
                 textDecoration: 'line-through',
-                fontFamily: "'Nunito Sans', sans-serif",
               }}>
-                {formatPrice(painting.mrp, painting.currency)}
+                {formatPrice(painting.mrp)}
               </span>
+            )}
+          </div>
 
-              <span style={{
-                fontSize: '11.5px',
-                fontWeight: 700,
-                color: '#10b981',
-              }}>
-                {discountPercent}% off
-              </span>
-            </>
-          )}
+          {/* Quick Add To Cart Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInquire(painting);
+            }}
+            title="Add to cart / Buy"
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '4px',
+              border: '1px solid #e5e7eb',
+              backgroundColor: isHovered ? '#1b3b2b' : '#ffffff',
+              color: isHovered ? '#ffffff' : '#111827',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <ShoppingBag size={14} />
+          </button>
         </div>
       </div>
     </div>

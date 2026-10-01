@@ -109,7 +109,7 @@ class PaintingBase(BaseModel):
     year_created: Optional[int] = None
     price: float
     mrp: Optional[float] = None
-    currency: str = "USD"
+    currency: str = "INR"
     image_url: str
     image_url_2: Optional[str] = None
     image_url_3: Optional[str] = None
@@ -338,5 +338,35 @@ class FooterConfigResponse(FooterConfigBase):
 
     class Config:
         from_attributes = True
+
+
+# ----------------- Showcase Item Schemas -----------------
+class ShowcaseItemBase(BaseModel):
+    image_url: str
+    title: Optional[str] = None
+    tag: Optional[str] = "FEATURED"
+    description: Optional[str] = None
+    display_order: int = 1
+    is_active: bool = True
+
+class ShowcaseItemCreate(ShowcaseItemBase):
+    pass
+
+class ShowcaseItemUpdate(BaseModel):
+    image_url: Optional[str] = None
+    title: Optional[str] = None
+    tag: Optional[str] = None
+    description: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class ShowcaseItemResponse(ShowcaseItemBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 

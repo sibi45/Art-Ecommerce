@@ -1,27 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,300..900;1,6..12,300..900&family=Cinzel:wght@600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,300..900;1,300..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Minimalist Luxury Light Palette (Male Fashion Style) */
+  /* Minimog Shopify Inspired Modern Lifestyle Palette */
   --bg-primary: #ffffff;
-  --bg-secondary: #f3f2ee;
-  --bg-card: #f9f9f9;
+  --bg-secondary: #f4f4f5;
+  --bg-card: #ffffff;
   --bg-card-hover: #ffffff;
-  --bg-dark: #111111;
-  --bg-dark-subtle: #1c1c1c;
+  --bg-dark: #111827;
+  --bg-dark-subtle: #1f2937;
 
-  --accent-red: #e53637;
-  --accent-red-hover: #ca2526;
-  --accent-black: #111111;
-  --accent-gold: #d4af37;
-  --star-color: #f7941d;
+  --accent-green: #1b3b2b;
+  --accent-green-hover: #132a1e;
+  --accent-green-tag: #10b981;
+  --accent-red: #e11d48;
+  --accent-black: #111827;
+  --accent-gold: #f59e0b;
+  --star-color: #f59e0b;
 
-  --border-subtle: #e5e5e5;
-  --border-light: #f2f2f2;
-  --border-dark: #111111;
+  --border-subtle: #e5e7eb;
+  --border-light: #f3f4f6;
+  --border-dark: #111827;
 
-  --text-main: #111111;
-  --text-muted: #707070;
-  --text-dim: #999999;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-dim: #9ca3af;
   --text-light: #ffffff;
 
   --status-available: #10b981;
@@ -29,8 +31,8 @@
   --status-sold: #ef4444;
   --status-contacted: #3b82f6;
 
-  --shadow-subtle: 0 4px 15px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.07);
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
   --shadow-modal: 0 25px 60px rgba(0, 0, 0, 0.2);
 
   --radius-xs: 2px;
@@ -48,8 +50,8 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-main);
-  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.6;
+  font-family: 'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   overflow-x: hidden;
@@ -57,7 +59,7 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-main);
-  font-family: 'Nunito Sans', sans-serif;
+  font-family: 'Roboto Condensed', sans-serif;
   font-weight: 700;
   line-height: 1.25;
 }
@@ -288,6 +290,19 @@ textarea.form-control {
   to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Red Dot brand accent */
 .brand-dot {
   display: inline-block;
@@ -333,6 +348,16 @@ img, video {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Testimonial Horizontal Scroll Carousel */
+.testimonial-scroll-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.testimonial-scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 /* Modal Responsive */
@@ -502,3 +527,44 @@ img, video {
     padding: 20px 16px !important;
   }
 }
+
+@keyframes promoFadeIn {
+  0% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Left-to-Right Continuous Scrolling Marquee */
+@keyframes scrollLeftToRight {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.promo-scroll-track {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  animation: scrollLeftToRight 28s linear infinite;
+  will-change: transform;
+}
+
+.promo-scroll-container:hover .promo-scroll-track {
+  animation-play-state: paused !important;
+}
+
+@media (max-width: 900px) {
+  .responsive-sale-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+

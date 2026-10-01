@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
-import { Category } from '../types';
+import { Category, ProductSection, FooterConfig } from '../types';
+import { api } from '../services/api';
 import {
   Search,
   Heart,
@@ -15,7 +16,10 @@ import {
   X,
   Package,
   ExternalLink,
-  Menu
+  Menu,
+  Truck,
+  ShieldCheck,
+  Star
 } from 'lucide-react';
 
 const PORTFOLIO_URL = import.meta.env.VITE_PORTFOLIO_URL || 'https://your-portfolio.com';
@@ -30,9 +34,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuth,
-  onOpenMyInquiries,
   cartCount = 0,
-  cartTotal = 0,
   categories = [],
 }) => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
@@ -41,398 +43,494 @@ export const Navbar: React.FC<NavbarProps> = ({
   const location = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCollectionOpen, setIsCollectionOpen] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [sections, setSections] = useState<ProductSection[]>([]);
+  const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(null);
+
+  useEffect(() => {
+    api.getSections().then((data) => setSections(data || [])).catch(() => {});
+    api.getFooterConfig().then((data) => setFooterConfig(data || null)).catch(() => {});
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      setIsSearchOpen(false);
     }
   };
 
+  const isHome = location.pathname === '/home' || location.pathname === '/';
+
   return (
-    <header style={{ position: 'sticky', top: 0, zIndex: 100, backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-      <div style={{ maxWidth: '1380px', margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        
-        {/* Left: Brand Logo & Collection Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          {/* Logo */}
+    <header style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      backgroundColor: '#ffffff',
+      fontFamily: "'Roboto Condensed', sans-serif"
+    }}>
+      {/* 1. Top Announcement Bar (Minimog Style) */}
+      <div style={{
+        backgroundColor: '#1b3b2b',
+        color: '#ffffff',
+        fontSize: '12.5px',
+        fontWeight: 500,
+        padding: '7px 20px',
+        letterSpacing: '0.02em',
+      }}>
+        <div style={{
+          maxWidth: '1380px',
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Truck size={14} color="#a7f3d0" />
+            <span>Free Shipping on Orders Over ₹999</span>
+          </div>
+
+          <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <ShieldCheck size={14} color="#a7f3d0" />
+            <span>30-Day Money Back Guarantee</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Star size={13} fill="#fbbf24" color="#fbbf24" />
+            <span>Excellent 4.9 out of 5 Rating</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Main Navbar Bar */}
+      <div style={{
+        borderBottom: '1px solid #e5e7eb',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+        backgroundColor: '#ffffff'
+      }}>
+        <div style={{
+          maxWidth: '1380px',
+          margin: '0 auto',
+          padding: '14px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '24px'
+        }}>
+          {/* Left: Brand Logo (Minimog Style with Green Icon) */}
           <Link
             to="/home"
             style={{
               textDecoration: 'none',
               display: 'flex',
-              alignItems: 'baseline',
+              alignItems: 'center',
+              gap: '10px',
               userSelect: 'none',
             }}
           >
-            <span style={{
-              fontSize: '25px',
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              color: '#09090b',
-              fontFamily: "'Playfair Display', Georgia, serif",
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              backgroundColor: '#1b3b2b',
               display: 'flex',
-              alignItems: 'baseline',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 2px 6px rgba(27, 59, 43, 0.25)',
             }}>
-              artgallery
-              <span style={{
-                display: 'inline-block',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: '#e11d48',
-                marginLeft: '4px',
-              }} />
-            </span>
+              <ShoppingBag size={20} strokeWidth={2.2} />
+            </div>
+            <div>
+              <div style={{
+                fontSize: '22px',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                color: '#111827',
+                lineHeight: 1,
+              }}>
+                {footerConfig?.brand_name || 'Minimog'}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: '#6b7280',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginTop: '1px'
+              }}>
+                {footerConfig?.brand_subtitle || 'Curated Store'}
+              </div>
+            </div>
           </Link>
 
-          {/* Collection Dropdown Button (Desktop) */}
-          <div className="hide-on-mobile" style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setIsCollectionOpen(!isCollectionOpen)}
-              onBlur={() => setTimeout(() => setIsCollectionOpen(false), 200)}
+          {/* Center: Navigation Links (Minimog Style) */}
+          <nav className="hide-on-mobile" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '28px',
+            fontSize: '15px',
+            fontWeight: 600,
+          }}>
+            <Link
+              to="/home"
               style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '14px',
-                fontWeight: 600,
-                color: '#334155',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 10px',
-                borderRadius: '6px',
+                textDecoration: 'none',
+                color: isHome ? '#1b3b2b' : '#374151',
+                paddingBottom: '4px',
+                borderBottom: isHome ? '2px solid #1b3b2b' : '2px solid transparent',
                 transition: 'all 0.15s ease',
               }}
             >
-              Collection <ChevronDown size={14} color="#64748b" style={{ transform: isCollectionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
-            </button>
+              Home
+            </Link>
 
-            {/* Collection Dropdown Menu */}
-            {isCollectionOpen && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                left: 0,
-                width: '240px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
-                padding: '8px 0',
-                zIndex: 200,
-                animation: 'fadeIn 0.15s ease',
-              }}>
-                <div style={{ padding: '6px 16px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Art Collections
-                </div>
-                <Link
-                  to="/shop"
-                  onClick={() => setIsCollectionOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#09090b',
-                    textDecoration: 'none',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  All Artworks
-                </Link>
-                {categories.map((cat) => (
+            {/* Shop Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsShopOpen(!isShopOpen)}
+                onBlur={() => setTimeout(() => setIsShopOpen(false), 200)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: location.pathname === '/shop' ? '#1b3b2b' : '#374151',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Shop <ChevronDown size={14} color="#6b7280" style={{ transform: isShopOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+              </button>
+
+              {isShopOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 12px)',
+                  left: 0,
+                  width: '210px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
+                  padding: '8px 0',
+                  zIndex: 200,
+                }}>
                   <Link
-                    key={cat.id}
-                    to={`/shop?category=${cat.id}`}
+                    to="/shop"
+                    onClick={() => setIsShopOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#111827',
+                      textDecoration: 'none',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    All Products
+                  </Link>
+
+                  {/* Dynamic sections configured from Admin Dashboard */}
+                  {sections && sections.filter(s => s.is_active).length > 0 ? (
+                    sections.filter(s => s.is_active).map((sec) => (
+                      <Link
+                        key={sec.id}
+                        to={`/shop?section=${sec.slug}`}
+                        onClick={() => setIsShopOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '8px 16px',
+                          fontSize: '13.5px',
+                          color: '#4b5563',
+                          textDecoration: 'none',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                          e.currentTarget.style.color = '#111827';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = '#4b5563';
+                        }}
+                      >
+                        {sec.name}
+                      </Link>
+                    ))
+                  ) : (
+                    /* Dynamic category links if no custom sections created */
+                    categories.slice(0, 6).map((cat) => (
+                      <Link
+                        key={cat.id}
+                        to={`/shop?category=${cat.id}`}
+                        onClick={() => setIsShopOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '8px 16px',
+                          fontSize: '13.5px',
+                          color: '#4b5563',
+                          textDecoration: 'none',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                          e.currentTarget.style.color = '#111827';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = '#4b5563';
+                        }}
+                      >
+                        {cat.name}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Collections Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsCollectionOpen(!isCollectionOpen)}
+                onBlur={() => setTimeout(() => setIsCollectionOpen(false), 200)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: location.pathname === '/collections' ? '#1b3b2b' : '#374151',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Collections <ChevronDown size={14} color="#6b7280" style={{ transform: isCollectionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+              </button>
+
+              {isCollectionOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 12px)',
+                  left: 0,
+                  width: '230px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
+                  padding: '8px 0',
+                  zIndex: 200,
+                }}>
+                  <div style={{ padding: '6px 16px', fontSize: '11px', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Collections
+                  </div>
+                  <Link
+                    to="/collections"
                     onClick={() => setIsCollectionOpen(false)}
                     style={{
                       display: 'block',
                       padding: '8px 16px',
-                      fontSize: '13px',
-                      color: '#475569',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: '#111827',
                       textDecoration: 'none',
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f8fafc';
-                      e.currentTarget.style.color = '#09090b';
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    All Collections
+                  </Link>
+                  {categories.map((cat) => (
+                    <Link
+                      key={cat.id}
+                      to={`/shop?category=${cat.id}`}
+                      onClick={() => setIsCollectionOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: '8px 16px',
+                        fontSize: '13.5px',
+                        color: '#4b5563',
+                        textDecoration: 'none',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f9fafb';
+                        e.currentTarget.style.color = '#111827';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#4b5563';
+                      }}
+                    >
+                      {cat.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dynamic Store Section Links from Database */}
+            {sections && sections.filter(s => s.is_active).length > 0 ? (
+              sections.filter(s => s.is_active).slice(0, 2).map((sec) => (
+                <Link
+                  key={sec.id}
+                  to={`/shop?section=${sec.slug}`}
+                  style={{
+                    textDecoration: 'none',
+                    color: '#374151',
+                    transition: 'color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#374151')}
+                >
+                  {sec.name}
+                </Link>
+              ))
+            ) : categories && categories.length > 0 ? (
+              categories.slice(0, 2).map((cat) => (
+                <Link
+                  key={cat.id}
+                  to={`/shop?category=${cat.id}`}
+                  style={{
+                    textDecoration: 'none',
+                    color: '#374151',
+                    transition: 'color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#374151')}
+                >
+                  {cat.name}
+                </Link>
+              ))
+            ) : null}
+
+            <Link
+              to="/orders"
+              style={{
+                textDecoration: 'none',
+                color: location.pathname === '/orders' ? '#1b3b2b' : '#374151',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = location.pathname === '/orders' ? '#1b3b2b' : '#374151')}
+            >
+              Orders
+            </Link>
+          </nav>
+
+          {/* Right: Search, Account, Wishlist, Cart Icons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+            {/* Search Input / Icon */}
+            <div style={{ position: 'relative' }}>
+              {isSearchOpen ? (
+                <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '180px',
+                      height: '34px',
+                      padding: '0 10px',
+                      border: '1px solid #1b3b2b',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      outline: 'none',
                     }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = '#475569';
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      background: '#1b3b2b',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      height: '34px',
+                      padding: '0 10px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    {cat.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+                    <Search size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchOpen(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                  >
+                    <X size={16} />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(true)}
+                  title="Search products"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#111827',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px',
+                  }}
+                >
+                  <Search size={20} strokeWidth={2} />
+                </button>
+              )}
+            </div>
 
-          {/* Orders Link (Desktop) */}
-          <Link
-            to="/orders"
-            className="hide-on-mobile"
-            style={{
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: location.pathname === '/orders' ? '#09090b' : '#334155',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              transition: 'all 0.15s ease',
-              backgroundColor: location.pathname === '/orders' ? '#f1f5f9' : 'transparent',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = location.pathname === '/orders' ? '#f1f5f9' : 'transparent'; }}
-          >
-            <Package size={14} color="#64748b" />
-            Orders
-          </Link>
-
-          {/* About / Portfolio Link (Desktop) */}
-          <a
-            href={PORTFOLIO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hide-on-mobile"
-            style={{
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#334155',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          >
-            About
-            <ExternalLink size={12} color="#94a3b8" />
-          </a>
-        </div>
-
-        {/* Center: Search Bar (Desktop) */}
-        <div className="hide-on-mobile" style={{ flex: 1, maxWidth: '580px' }}>
-          <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '100%' }}>
-            <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-            <input
-              type="text"
-              placeholder="Search for paintings, artists, styles, mediums..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            {/* Wishlist */}
+            <Link
+              to="/wishlist"
+              title="Saved Wishlist"
               style={{
-                width: '100%',
-                height: '42px',
-                paddingLeft: '44px',
-                paddingRight: searchQuery ? '36px' : '16px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                color: '#0f172a',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.backgroundColor = '#ffffff';
-                e.currentTarget.style.borderColor = '#09090b';
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(9, 9, 11, 0.05)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.backgroundColor = '#f8fafc';
-                e.currentTarget.style.borderColor = '#e2e8f0';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer',
-                  padding: '2px',
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </form>
-        </div>
-
-        {/* Right: Account, Wishlist, Cart Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* Account (Desktop) */}
-          <div className="hide-on-mobile" style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => {
-                if (isAuthenticated) {
-                  setIsAccountOpen(!isAccountOpen);
-                } else {
-                  onOpenAuth();
-                }
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
+                textDecoration: 'none',
+                position: 'relative',
+                color: '#111827',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '2px',
-                cursor: 'pointer',
-                color: '#334155',
+                justifyContent: 'center',
                 padding: '4px',
               }}
             >
-              <UserIcon size={20} strokeWidth={1.75} />
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
-                Profile
-              </span>
-            </button>
-
-            {/* Account Popover */}
-            {isAccountOpen && isAuthenticated && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: '210px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
-                padding: '8px 0',
-                zIndex: 200,
-              }}>
-                <div style={{ padding: '8px 16px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#09090b' }}>{user?.full_name}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{user?.email}</div>
-                </div>
-
-                <Link
-                  to="/orders"
-                  onClick={() => setIsAccountOpen(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '9px 16px',
-                    fontSize: '13px',
-                    color: '#334155',
-                    textDecoration: 'none',
-                    fontWeight: 500,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <ClipboardList size={15} /> My Orders & Inquiries
-                </Link>
-
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setIsAccountOpen(false)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '9px 16px',
-                      fontSize: '13px',
-                      color: '#e11d48',
-                      textDecoration: 'none',
-                      fontWeight: 600,
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fff1f2')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <LayoutDashboard size={15} /> Admin Portal
-                  </Link>
-                )}
-
-                <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '4px' }}>
-                  <button
-                    onClick={() => {
-                      setIsAccountOpen(false);
-                      logout();
-                    }}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '9px 16px',
-                      fontSize: '13px',
-                      color: '#64748b',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <LogOut size={15} /> Log Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Wishlist */}
-          <Link
-            to="/wishlist"
-            style={{
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '2px',
-              color: '#334155',
-              padding: '4px',
-              position: 'relative',
-            }}
-          >
-            <div style={{ position: 'relative' }}>
-              <Heart
-                size={20}
-                strokeWidth={1.75}
-                fill={wishlistCount > 0 ? '#e11d48' : 'none'}
-                color={wishlistCount > 0 ? '#e11d48' : '#334155'}
-              />
+              <Heart size={20} strokeWidth={2} fill={wishlistCount > 0 ? '#1b3b2b' : 'none'} color={wishlistCount > 0 ? '#1b3b2b' : '#111827'} />
               {wishlistCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
-                    top: '-5px',
-                    right: '-8px',
-                    backgroundColor: '#e11d48',
+                    top: '-4px',
+                    right: '-6px',
+                    backgroundColor: '#1b3b2b',
                     color: '#ffffff',
                     fontSize: '10px',
-                    fontWeight: 800,
-                    width: '17px',
-                    height: '17px',
+                    fontWeight: 700,
+                    width: '16px',
+                    height: '16px',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -442,32 +540,144 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {wishlistCount}
                 </span>
               )}
-            </div>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Wishlist</span>
-          </Link>
+            </Link>
 
-          {/* Cart */}
-          <Link
-            to="/cart"
-            style={{
-              textDecoration: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '2px',
-              color: '#334155',
-              padding: '4px',
-              position: 'relative',
-            }}
-          >
+            {/* Account Profile Icon (Minimog Style) */}
             <div style={{ position: 'relative' }}>
-              <ShoppingBag size={20} strokeWidth={1.75} />
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAuthenticated) {
+                    setIsAccountOpen(!isAccountOpen);
+                  } else {
+                    onOpenAuth();
+                  }
+                }}
+                title={isAuthenticated && user?.full_name ? user.full_name : 'Sign in / Account'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#111827',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px',
+                }}
+              >
+                <UserIcon size={20} strokeWidth={2} />
+              </button>
+
+              {/* Account Popover */}
+              {isAccountOpen && isAuthenticated && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 12px)',
+                  right: 0,
+                  width: '210px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
+                  padding: '8px 0',
+                  zIndex: 200,
+                }}>
+                  <div style={{ padding: '8px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{user?.full_name}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email}</div>
+                  </div>
+
+                  <Link
+                    to="/orders"
+                    onClick={() => setIsAccountOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '9px 16px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <ClipboardList size={15} /> My Orders
+                  </Link>
+
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsAccountOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '9px 16px',
+                        fontSize: '13px',
+                        color: '#1b3b2b',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0fdf4')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <LayoutDashboard size={15} /> Admin Dashboard
+                    </Link>
+                  )}
+
+                  <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '4px' }}>
+                    <button
+                      onClick={() => {
+                        setIsAccountOpen(false);
+                        logout();
+                      }}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '9px 16px',
+                        fontSize: '13px',
+                        color: '#6b7280',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <LogOut size={15} /> Log Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Shopping Cart Icon (Minimog Style with Green Badge Count) */}
+            <Link
+              to="/cart"
+              title="Shopping Cart"
+              style={{
+                textDecoration: 'none',
+                position: 'relative',
+                color: '#111827',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px',
+              }}
+            >
+              <ShoppingBag size={21} strokeWidth={2} />
               <span
                 style={{
                   position: 'absolute',
-                  top: '-5px',
-                  right: '-8px',
-                  backgroundColor: '#e11d48',
+                  top: '-4px',
+                  right: '-6px',
+                  backgroundColor: '#1b3b2b',
                   color: '#ffffff',
                   fontSize: '10px',
                   fontWeight: 800,
@@ -481,45 +691,42 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 {cartCount}
               </span>
-            </div>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Cart</span>
-          </Link>
+            </Link>
 
-          {/* Mobile Hamburger Menu Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="show-on-mobile"
-            style={{
-              background: 'none',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              padding: '8px',
-              cursor: 'pointer',
-              color: '#09090b',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="Toggle Mobile Menu"
-          >
-            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+            {/* Mobile Hamburger Menu Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="show-on-mobile"
+              style={{
+                background: 'none',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                padding: '6px',
+                cursor: 'pointer',
+                color: '#111827',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              aria-label="Toggle Mobile Menu"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Drawer Dropdown Sheet */}
+      {/* Mobile Menu Drawer Sheet */}
       {isMobileMenuOpen && (
         <div
           className="show-on-mobile-block"
           style={{
             padding: '16px 20px 24px',
             backgroundColor: '#ffffff',
-            borderTop: '1px solid #f1f5f9',
+            borderTop: '1px solid #e5e7eb',
             boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
-            animation: 'fadeIn 0.2s ease',
           }}
         >
-          {/* Mobile Search Input */}
           <form
             onSubmit={(e) => {
               handleSearchSubmit(e);
@@ -527,46 +734,93 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             style={{ position: 'relative', marginBottom: '16px' }}
           >
-            <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+            <Search size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
-              placeholder="Search paintings, artists..."
+              placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                height: '42px',
-                paddingLeft: '40px',
-                paddingRight: '14px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
+                height: '40px',
+                paddingLeft: '36px',
+                paddingRight: '12px',
+                backgroundColor: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
                 fontSize: '14px',
                 outline: 'none',
                 boxSizing: 'border-box',
+                fontFamily: 'inherit',
               }}
             />
           </form>
 
-          {/* Mobile Nav Links */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <Link
+              to="/home"
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '4px',
+                color: '#111827',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+                backgroundColor: '#f3f4f6',
+              }}
+            >
+              Home
+            </Link>
+
             <Link
               to="/shop"
               onClick={() => setIsMobileMenuOpen(false)}
               style={{
                 padding: '10px 14px',
-                borderRadius: '6px',
-                color: '#09090b',
+                borderRadius: '4px',
+                color: '#111827',
                 textDecoration: 'none',
                 fontWeight: 700,
                 fontSize: '14px',
-                backgroundColor: '#f8fafc',
               }}
             >
-              All Artworks & Catalog
+              Shop All Products
             </Link>
 
-            {/* Categories */}
+            <Link
+              to="/collections"
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '4px',
+                color: '#111827',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+              }}
+            >
+              Collections
+            </Link>
+
+            {sections && sections.filter(s => s.is_active).map((sec) => (
+              <Link
+                key={`mobile-sec-${sec.id}`}
+                to={`/shop?section=${sec.slug}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '4px',
+                  color: '#4b5563',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                }}
+              >
+                &mdash; {sec.name}
+              </Link>
+            ))}
+
             {categories.map((cat) => (
               <Link
                 key={cat.id}
@@ -574,18 +828,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={{
                   padding: '8px 14px',
-                  borderRadius: '6px',
-                  color: '#475569',
+                  borderRadius: '4px',
+                  color: '#4b5563',
                   textDecoration: 'none',
                   fontWeight: 600,
-                  fontSize: '13.5px',
+                  fontSize: '13px',
                 }}
               >
                 &mdash; {cat.name}
               </Link>
             ))}
-
-            <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '8px 0' }} />
 
             <Link
               to="/orders"
@@ -595,14 +847,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 alignItems: 'center',
                 gap: '8px',
                 padding: '10px 14px',
-                borderRadius: '6px',
-                color: '#334155',
+                borderRadius: '4px',
+                color: '#111827',
                 textDecoration: 'none',
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: '14px',
               }}
             >
-              <Package size={16} /> My Inquiries & Orders
+              <Package size={16} /> Orders
             </Link>
 
             <Link
@@ -613,14 +865,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 alignItems: 'center',
                 gap: '8px',
                 padding: '10px 14px',
-                borderRadius: '6px',
-                color: '#334155',
+                borderRadius: '4px',
+                color: '#111827',
                 textDecoration: 'none',
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: '14px',
               }}
             >
-              <Heart size={16} color="#e11d48" /> Wishlist ({wishlistCount})
+              <Heart size={16} color="#1b3b2b" /> Wishlist ({wishlistCount})
             </Link>
 
             <a
@@ -633,14 +885,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 alignItems: 'center',
                 gap: '8px',
                 padding: '10px 14px',
-                borderRadius: '6px',
-                color: '#334155',
+                borderRadius: '4px',
+                color: '#4b5563',
                 textDecoration: 'none',
                 fontWeight: 600,
                 fontSize: '14px',
               }}
             >
-              <ExternalLink size={16} /> Artist Portfolio & About
+              <ExternalLink size={16} /> About Us
             </a>
 
             {isAdmin && (
@@ -652,25 +904,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                   alignItems: 'center',
                   gap: '8px',
                   padding: '10px 14px',
-                  borderRadius: '6px',
-                  color: '#e11d48',
+                  borderRadius: '4px',
+                  color: '#1b3b2b',
                   textDecoration: 'none',
                   fontWeight: 700,
                   fontSize: '14px',
-                  backgroundColor: '#fff1f2',
+                  backgroundColor: '#f0fdf4',
                 }}
               >
-                <LayoutDashboard size={16} /> Admin Portal
+                <LayoutDashboard size={16} /> Admin Dashboard
               </Link>
             )}
 
-            <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '8px 0' }} />
+            <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '8px 0' }} />
 
             {isAuthenticated ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', backgroundColor: '#fafafa', borderRadius: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', backgroundColor: '#f9fafb', borderRadius: '4px' }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '13px', color: '#09090b' }}>{user?.full_name}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{user?.email}</div>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: '#111827' }}>{user?.full_name}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email}</div>
                 </div>
                 <button
                   type="button"
@@ -680,13 +932,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }}
                   style={{
                     background: '#ffffff',
-                    border: '1px solid #fecaca',
-                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '4px',
                     padding: '6px 12px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#dc2626',
+                    color: '#111827',
                     cursor: 'pointer',
+                    fontFamily: 'inherit',
                   }}
                 >
                   Log Out
@@ -699,13 +952,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setIsMobileMenuOpen(false);
                   onOpenAuth();
                 }}
-                className="btn btn-primary"
                 style={{
                   width: '100%',
-                  padding: '12px',
-                  fontSize: '13px',
+                  padding: '11px',
+                  fontSize: '14px',
                   fontWeight: 700,
-                  borderRadius: '6px',
+                  borderRadius: '4px',
+                  backgroundColor: '#1b3b2b',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
                   marginTop: '4px',
                 }}
               >

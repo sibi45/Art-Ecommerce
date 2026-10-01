@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Painting, Category, Inquiry, AdminStats, User, Banner, ProductSection, Testimonial, FooterConfig, FeatureBadge, CustomFooterLink } from '../types';
+import { Painting, Category, Inquiry, AdminStats, User, Banner, ShowcaseItem, ProductSection, Testimonial, FooterConfig, FeatureBadge, CustomFooterLink } from '../types';
 import { api } from '../services/api';
 import {
   LayoutDashboard,
@@ -48,7 +48,10 @@ import {
   Lock,
   KeyRound,
   EyeOff,
-  Menu
+  Menu,
+  SlidersHorizontal,
+  Filter,
+  LogOut,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -60,12 +63,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   const location = useLocation();
 
   // Synchronize active section with URL path
-  const getSectionFromPath = (): 'overview' | 'products' | 'inquiries' | 'users' | 'banners' | 'sections' | 'categories' | 'testimonials' | 'footer' | 'settings' => {
+  const getSectionFromPath = (): 'overview' | 'products' | 'inquiries' | 'users' | 'banners' | 'showcase' | 'sections' | 'categories' | 'testimonials' | 'footer' | 'settings' => {
     const path = location.pathname.toLowerCase();
     if (path.includes('/admin/products')) return 'products';
     if (path.includes('/admin/inquiries')) return 'inquiries';
     if (path.includes('/admin/users')) return 'users';
     if (path.includes('/admin/banners')) return 'banners';
+    if (path.includes('/admin/showcase')) return 'showcase';
     if (path.includes('/admin/sections')) return 'sections';
     if (path.includes('/admin/categories')) return 'categories';
     if (path.includes('/admin/testimonials')) return 'testimonials';
@@ -79,6 +83,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
   // Data states
   const [paintings, setPaintings] = useState<Painting[]>([]);
+  const [productSearch, setProductSearch] = useState<string>('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+  const [showProductFilter, setShowProductFilter] = useState<boolean>(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -195,6 +202,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     display_order: 1,
   });
 
+  // Showcase Marquee state
+  const [showcases, setShowcases] = useState<ShowcaseItem[]>([]);
+  const [showShowcaseModal, setShowShowcaseModal] = useState(false);
+  const [editingShowcase, setEditingShowcase] = useState<ShowcaseItem | null>(null);
+  const [uploadingShowcaseImage, setUploadingShowcaseImage] = useState(false);
+  const [showcaseFormData, setShowcaseFormData] = useState({
+    image_url: '',
+    title: '',
+    tag: 'FEATURED',
+    description: '',
+    display_order: 1,
+    is_active: true,
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -260,13 +281,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setLoading(true);
     setError(null);
     try {
-      const [paintingsData, categoriesData, inquiriesData, statsData, usersData, bannersData, sectionsData, testimonialsData, footerData] = await Promise.all([
+      const [paintingsData, categoriesData, inquiriesData, statsData, usersData, bannersData, showcasesData, sectionsData, testimonialsData, footerData] = await Promise.all([
         api.getPaintings(),
         api.getCategories(),
         api.getAllInquiries(),
         api.getAdminStats(),
         api.getAllUsers(),
         api.getAllBannersAdmin(),
+        api.getAllShowcaseItemsAdmin(),
         api.getAllSectionsAdmin(),
         api.getAllTestimonialsAdmin(),
         api.getFooterConfigAdmin(),
@@ -277,6 +299,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       setStats(statsData);
       setUsers(usersData);
       setBanners(bannersData);
+      setShowcases(showcasesData);
       setSections(sectionsData);
       setTestimonials(testimonialsData);
       if (footerData) {
@@ -509,7 +532,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
   const handleDeleteCategory = async (catId: number) => {
     const cat = categories.find((c) => c.id === catId);
-    if (!window.confirm(`Are you sure you want to delete category "${cat?.name || ''}"? Artworks assigned to this category will remain in your store under unassigned category.`)) {
+    if (!window.confirm(`Are you sure you want to delete collection "${cat?.name || ''}"? Artworks assigned to this collection will remain in your store under unassigned collection.`)) {
       return;
     }
     try {
@@ -987,6 +1010,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     }
   };
 
+  // Showcase Marquee Handlers
+  const openAddShowcaseModal = () => {
+    setEditingShowcase(null);
+    setShowcaseFormData({
+      image_url: '',
+      title: '',
+      tag: 'FEATURED',
+      description: '',
+      display_order: showcases.length + 1,
+      is_active: true,
+    });
+    setShowShowcaseModal(true);
+  };
+
+  const openEditShowcaseModal = (item: ShowcaseItem) => {
+    setEditingShowcase(item);
+    setShowcaseFormData({
+      image_url: item.image_url,
+      title: item.title || '',
+      tag: item.tag || '',
+      description: item.description || '',
+      display_order: item.display_order,
+      is_active: item.is_active,
+    });
+    setShowShowcaseModal(true);
+  };
+
+  const handleShowcaseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingShowcaseImage(true);
+    try {
+      const res = await api.uploadImage(file);
+      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      setShowcaseFormData((prev) => ({ ...prev, image_url: fullUrl }));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload showcase image file');
+    } finally {
+      setUploadingShowcaseImage(false);
+    }
+  };
+
+  const handleSaveShowcase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showcaseFormData.image_url.trim()) {
+      alert('Please upload or specify an image URL for the showcase photo.');
+      return;
+    }
+    try {
+      const payload = {
+        image_url: showcaseFormData.image_url.trim(),
+        title: showcaseFormData.title.trim() || undefined,
+        tag: showcaseFormData.tag.trim() || undefined,
+        description: showcaseFormData.description.trim() || undefined,
+        display_order: Number(showcaseFormData.display_order) || 1,
+        is_active: showcaseFormData.is_active,
+      };
+
+      if (editingShowcase) {
+        const updated = await api.updateShowcaseItem(editingShowcase.id, payload);
+        setShowcases((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      } else {
+        const created = await api.createShowcaseItem(payload);
+        setShowcases((prev) => [...prev, created]);
+      }
+
+      setShowShowcaseModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save showcase item');
+    }
+  };
+
+  const handleToggleShowcaseActive = async (itemId: number) => {
+    try {
+      const updated = await api.toggleShowcaseItemActive(itemId);
+      setShowcases((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle showcase visibility');
+    }
+  };
+
+  const handleDeleteShowcase = async (itemId: number) => {
+    if (!window.confirm('Are you sure you want to delete this showcase photo?')) {
+      return;
+    }
+    try {
+      await api.deleteShowcaseItem(itemId);
+      setShowcases((prev) => prev.filter((s) => s.id !== itemId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete showcase item');
+    }
+  };
+
   const handleStatusChange = async (inquiryId: number, newStatus: string) => {
     try {
       const note = inquiryNotes[inquiryId] || '';
@@ -1020,6 +1137,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       maximumFractionDigits: 0,
     }).format(price);
   };
+
+  const filteredPaintings = paintings.filter((p) => {
+    const catObj = categories.find((c) => c.id === p.category_id);
+    const catNameStr = catObj ? catObj.name : (typeof p.category === 'object' && p.category ? p.category.name : (typeof p.category === 'string' ? p.category : ''));
+    if (productCategoryFilter !== 'all') {
+      if (catNameStr !== productCategoryFilter && String(p.category_id) !== productCategoryFilter) {
+        return false;
+      }
+    }
+    if (!productSearch.trim()) return true;
+    const term = productSearch.toLowerCase();
+    const catNameLower = catNameStr.toLowerCase();
+    return (
+      (p.title && p.title.toLowerCase().includes(term)) ||
+      (p.artist_name && p.artist_name.toLowerCase().includes(term)) ||
+      catNameLower.includes(term) ||
+      `sbp-${p.id}`.includes(term) ||
+      String(p.id).includes(term)
+    );
+  });
 
   const filteredInquiries = inquiries.filter((inq) => {
     if (!inquiryStatusFilter) return true;
@@ -1072,31 +1209,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
           overflowY: 'auto',
         }}
       >
-        <div>
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
           {/* Workspace Title */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '8px 12px',
-            marginBottom: '28px',
+            padding: '4px 12px 18px',
+            borderBottom: '1px solid #e5e7eb',
+            marginBottom: '16px',
           }}>
             <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#09090b',
+              width: '26px',
+              height: '26px',
+              borderRadius: '2px',
+              backgroundColor: '#000000',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: '14px',
+              fontSize: '13px',
             }}>
               ✦
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '14px', color: '#09090b', letterSpacing: '-0.01em' }}>
+              <div style={{
+                fontWeight: 700,
+                fontSize: '14px',
+                color: '#000000',
+                letterSpacing: '-0.01em',
+                fontFamily: "'Playfair Display', Georgia, serif"
+              }}>
                 ArtGallery
               </div>
               <div style={{ fontSize: '11px', color: '#71717a' }}>
@@ -1105,263 +1249,344 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {/* Navigation Groups */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {/* 1. OVERVIEW */}
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', textTransform: 'uppercase', padding: '10px 12px 4px' }}>
+              OVERVIEW
+            </div>
             <button
-              onClick={() => navigate('/admin')}
+              type="button"
+              onClick={() => {
+                navigate('/admin');
+                setActiveSubTab('overview');
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'overview' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'overview' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'overview' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'overview' && activeSubTab === 'overview' ? '#000000' : 'transparent',
+                color: navSection === 'overview' && activeSubTab === 'overview' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'overview' && activeSubTab === 'overview' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <LayoutDashboard size={16} />
+              <LayoutDashboard size={15} />
               Dashboard
             </button>
-
             <button
+              type="button"
+              onClick={() => {
+                navigate('/admin');
+                setActiveSubTab('analytics');
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'overview' && activeSubTab === 'analytics' ? '#000000' : 'transparent',
+                color: navSection === 'overview' && activeSubTab === 'analytics' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'overview' && activeSubTab === 'analytics' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Activity size={15} />
+              Analytics
+            </button>
+
+            {/* 2. CATALOG */}
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', textTransform: 'uppercase', padding: '14px 12px 4px' }}>
+              CATALOG
+            </div>
+            <button
+              type="button"
               onClick={() => navigate('/admin/products')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'products' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'products' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'products' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'products' ? '#000000' : 'transparent',
+                color: navSection === 'products' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'products' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Package size={16} />
-              Products & Art
+              <Package size={15} />
+              Products
             </button>
-
             <button
-              onClick={() => navigate('/admin/inquiries')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: navSection === 'inquiries' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'inquiries' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'inquiries' ? 700 : 500,
-                fontSize: '13.5px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <ClipboardList size={16} />
-              Inquiries & CRM
-            </button>
-
-            <button
-              onClick={() => navigate('/admin/users')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: navSection === 'users' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'users' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'users' ? 700 : 500,
-                fontSize: '13.5px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Users size={16} />
-              Users
-            </button>
-
-            <button
-              onClick={() => navigate('/admin/banners')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: navSection === 'banners' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'banners' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'banners' ? 700 : 500,
-                fontSize: '13.5px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <ImageIcon size={16} />
-              Hero Banners
-            </button>
-
-            <button
-              onClick={() => navigate('/admin/sections')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: navSection === 'sections' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'sections' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'sections' ? 700 : 500,
-                fontSize: '13.5px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Layers size={16} />
-              Store Sections
-            </button>
-
-            <button
+              type="button"
               onClick={() => navigate('/admin/categories')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'categories' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'categories' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'categories' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'categories' ? '#000000' : 'transparent',
+                color: navSection === 'categories' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'categories' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <FolderTree size={16} />
-              Categories
+              <FolderTree size={15} />
+              Collections
             </button>
 
+            {/* 3. SALES & CUSTOMERS */}
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', textTransform: 'uppercase', padding: '14px 12px 4px' }}>
+              SALES & CUSTOMERS
+            </div>
             <button
+              type="button"
+              onClick={() => navigate('/admin/inquiries')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'inquiries' ? '#000000' : 'transparent',
+                color: navSection === 'inquiries' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'inquiries' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ClipboardList size={15} />
+              Orders
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/users')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'users' ? '#000000' : 'transparent',
+                color: navSection === 'users' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'users' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Users size={15} />
+              Customers
+            </button>
+
+            {/* 4. STOREFRONT & CMS */}
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', textTransform: 'uppercase', padding: '14px 12px 4px' }}>
+              STOREFRONT & CMS
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/banners')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'banners' ? '#000000' : 'transparent',
+                color: navSection === 'banners' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'banners' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ImageIcon size={15} />
+              Banners
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/showcase')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'showcase' ? '#000000' : 'transparent',
+                color: navSection === 'showcase' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'showcase' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Sparkles size={15} />
+              Showcase Marquee
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/sections')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '2px',
+                border: 'none',
+                backgroundColor: navSection === 'sections' ? '#000000' : 'transparent',
+                color: navSection === 'sections' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'sections' ? 600 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Layers size={15} />
+              Sections
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/admin/testimonials')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'testimonials' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'testimonials' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'testimonials' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'testimonials' ? '#000000' : 'transparent',
+                color: navSection === 'testimonials' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'testimonials' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Quote size={16} />
+              <Quote size={15} />
               Testimonials
             </button>
-
             <button
+              type="button"
               onClick={() => navigate('/admin/footer')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'footer' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'footer' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'footer' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'footer' ? '#000000' : 'transparent',
+                color: navSection === 'footer' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'footer' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <PanelBottom size={16} />
+              <PanelBottom size={15} />
               Footer
             </button>
-
             <button
+              type="button"
               onClick={() => navigate('/admin/settings')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                padding: '9px 12px',
-                borderRadius: '6px',
+                padding: '8px 12px',
+                borderRadius: '2px',
                 border: 'none',
-                background: navSection === 'settings' ? '#f4f4f5' : 'transparent',
-                color: navSection === 'settings' ? '#09090b' : '#71717a',
-                fontWeight: navSection === 'settings' ? 700 : 500,
-                fontSize: '13.5px',
+                backgroundColor: navSection === 'settings' ? '#000000' : 'transparent',
+                color: navSection === 'settings' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'settings' ? 600 : 500,
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Settings size={16} />
+              <Settings size={15} />
               Settings
             </button>
           </div>
         </div>
 
-        {/* Bottom: Return to Store button */}
-        <div>
+        {/* Bottom: Sign Out button */}
+        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
           <button
+            type="button"
             onClick={onBackToStore}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              padding: '10px 12px',
-              borderRadius: '6px',
-              border: '1px solid #e4e4e7',
-              backgroundColor: '#ffffff',
-              color: '#09090b',
-              fontWeight: 700,
+              padding: '8px 12px',
+              borderRadius: '2px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: '#374151',
+              fontWeight: 500,
               fontSize: '13px',
               cursor: 'pointer',
               width: '100%',
-              justifyContent: 'center',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f4f4f5';
+              e.currentTarget.style.color = '#000000';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#374151';
             }}
           >
-            <Store size={15} />
-            Return to Store
+            <LogOut size={15} />
+            Sign Out
           </button>
         </div>
       </aside>
@@ -1494,7 +1719,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                backgroundColor: navSection === 'settings' ? '#e53637' : '#09090b',
+                backgroundColor: '#000000',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
@@ -1503,14 +1728,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 fontWeight: 800,
                 cursor: 'pointer',
                 transition: 'all 0.18s ease',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                border: '1px solid #000000',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e53637';
+                e.currentTarget.style.backgroundColor = '#374151';
                 e.currentTarget.style.transform = 'scale(1.05)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = navSection === 'settings' ? '#e53637' : '#09090b';
+                e.currentTarget.style.backgroundColor = '#000000';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
             >
@@ -1524,56 +1749,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
         {/* Page Content Body */}
         <main className="admin-content-padding" style={{ padding: '32px 36px', overflowY: 'auto', flex: 1 }}>
           {/* Dynamic Section Header */}
-          <div style={{ marginBottom: '28px' }}>
-            <h1 style={{ fontSize: '30px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '6px' }}>
-              {navSection === 'overview' && 'Dashboard'}
-              {navSection === 'products' && 'Products & Artwork'}
-              {navSection === 'inquiries' && 'Inquiries & CRM'}
-              {navSection === 'users' && 'Users & Accounts'}
-              {navSection === 'settings' && 'Store Settings'}
-            </h1>
-
-            {navSection === 'overview' ? (
-              /* Sub-nav Pill Selectors (Exact match from Shadcn screenshot) */
-              <div style={{
-                display: 'inline-flex',
-                backgroundColor: '#f4f4f5',
-                padding: '4px',
-                borderRadius: '8px',
-                gap: '4px',
-                marginTop: '6px',
+          {navSection !== 'products' && (
+            <div style={{ marginBottom: '24px' }}>
+              <h1 style={{
+                fontSize: '24px',
+                fontWeight: 700,
+                color: '#000000',
+                letterSpacing: '-0.01em',
+                marginBottom: '4px',
+                fontFamily: "'Playfair Display', Georgia, serif"
               }}>
-                {(['overview', 'analytics', 'reports', 'notifications'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveSubTab(tab)}
-                    style={{
-                      border: 'none',
-                      padding: '6px 16px',
-                      borderRadius: '6px',
-                      backgroundColor: activeSubTab === tab ? '#ffffff' : 'transparent',
-                      color: activeSubTab === tab ? '#09090b' : '#71717a',
-                      fontWeight: activeSubTab === tab ? 700 : 500,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      boxShadow: activeSubTab === tab ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                      textTransform: 'capitalize',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p style={{ fontSize: '13.5px', color: '#71717a', margin: '4px 0 0' }}>
-                {navSection === 'products' && 'Manage painting prices, framing, inventory status, and live active toggle in PostgreSQL.'}
-                {navSection === 'inquiries' && 'Customer acquisition inquiries and orders placed from the shopping cart.'}
-                {navSection === 'users' && 'View all registered customers, collectors, and admins stored in PostgreSQL.'}
-                {navSection === 'settings' && 'Database connection and currency configuration.'}
-              </p>
-            )}
-          </div>
+                {navSection === 'overview' && 'Dashboard'}
+                {navSection === 'inquiries' && 'Orders & Inquiries'}
+                {navSection === 'users' && 'Customers & Accounts'}
+                {navSection === 'settings' && 'Store Settings'}
+                {navSection === 'banners' && 'Hero Banners'}
+                {navSection === 'sections' && 'Store Sections'}
+                {navSection === 'categories' && 'Collections'}
+                {navSection === 'testimonials' && 'Patron Testimonials'}
+                {navSection === 'footer' && 'Footer Configuration'}
+              </h1>
+
+              {navSection === 'overview' ? (
+                /* Sub-nav Pill Selectors */
+                <div style={{
+                  display: 'inline-flex',
+                  backgroundColor: '#f4f4f5',
+                  padding: '3px',
+                  borderRadius: '2px',
+                  gap: '3px',
+                  marginTop: '8px',
+                }}>
+                  {(['overview', 'analytics', 'reports', 'notifications'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveSubTab(tab)}
+                      style={{
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '2px',
+                        backgroundColor: activeSubTab === tab ? '#000000' : 'transparent',
+                        color: activeSubTab === tab ? '#ffffff' : '#71717a',
+                        fontWeight: activeSubTab === tab ? 600 : 500,
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  {navSection === 'inquiries' && 'Review incoming client orders, inquiries, and customer requests.'}
+                  {navSection === 'users' && 'View all registered customers, collectors, and admins stored in PostgreSQL.'}
+                  {navSection === 'settings' && 'Database connection and currency configuration.'}
+                  {navSection === 'banners' && 'Manage promotional hero banners and storefront visuals.'}
+                  {navSection === 'sections' && 'Curate storefront sections and featured highlights.'}
+                  {navSection === 'categories' && 'Organize artwork collections, styles, and taxonomies.'}
+                  {navSection === 'testimonials' && 'Manage patron reviews and quotes displayed on the storefront.'}
+                  {navSection === 'footer' && 'Configure global storefront footer content and brand badges.'}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* VIEW 1: OVERVIEW (Exact Shadcn Layout from Screenshot) */}
           {navSection === 'overview' && (
@@ -1588,80 +1829,80 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* 1. Total Revenue Card */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
-                  padding: '22px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px 18px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#09090b' }}>Total Revenue</span>
-                    <span style={{ color: '#71717a', fontSize: '14px' }}>₹</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: '#71717a', textTransform: 'uppercase' }}>TOTAL REVENUE</span>
+                    <span style={{ color: '#71717a', fontSize: '13px' }}>₹</span>
                   </div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     {formatPrice(stats?.estimated_pipeline_value || 45231)}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#16a34a', fontWeight: 700 }}>+20.1%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>+20.1%</span> from last month
                   </div>
                 </div>
 
                 {/* 2. Subscriptions / Inquiries Card */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
-                  padding: '22px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px 18px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#09090b' }}>Inquiries CRM</span>
-                    <Users size={16} color="#71717a" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: '#71717a', textTransform: 'uppercase' }}>INQUIRIES CRM</span>
+                    <Users size={14} color="#71717a" />
                   </div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     +{stats?.total_inquiries || inquiries.length || 235}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#16a34a', fontWeight: 700 }}>+180.1%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>+180.1%</span> from last month
                   </div>
                 </div>
 
                 {/* 3. Sales / Confirmed Orders Card */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
-                  padding: '22px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px 18px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#09090b' }}>Sales Orders</span>
-                    <CreditCard size={16} color="#71717a" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: '#71717a', textTransform: 'uppercase' }}>SALES ORDERS</span>
+                    <CreditCard size={14} color="#71717a" />
                   </div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     +{stats?.confirmed_orders || 12}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#16a34a', fontWeight: 700 }}>+19%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>+19%</span> from last month
                   </div>
                 </div>
 
                 {/* 4. Active Now / In Stock Card */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
-                  padding: '22px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px 18px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#09090b' }}>Available Art</span>
-                    <Activity size={16} color="#71717a" />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: '#71717a', textTransform: 'uppercase' }}>AVAILABLE ART</span>
+                    <Activity size={14} color="#71717a" />
                   </div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     +{stats?.available_paintings || paintings.length}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#16a34a', fontWeight: 700 }}>+201</span> since last hour
+                    <span style={{ color: '#000000', fontWeight: 700 }}>+201</span> since last hour
                   </div>
                 </div>
               </div>
@@ -1672,15 +1913,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 gridTemplateColumns: '1.6fr 1.1fr',
                 gap: '20px',
               }}>
-                {/* Left Card: Overview Bar Chart (Exact replica from Shadcn screenshot) */}
+                {/* Left Card: Overview Bar Chart */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
-                  padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#09090b', marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#000000', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Overview
                   </h3>
 
@@ -1704,20 +1945,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     </div>
 
                     {/* Bars for each month */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '210px', paddingBottom: '20px', borderBottom: '1px solid #e4e4e7' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '210px', paddingBottom: '20px', borderBottom: '1px solid #e5e7eb' }}>
                       {months.map((m, idx) => (
                         <div key={m} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1 }}>
                           <div
                             style={{
-                              width: '26px',
+                              width: '24px',
                               height: `${barChartHeights[idx]}%`,
-                              backgroundColor: '#09090b',
-                              borderRadius: '4px 4px 0 0',
+                              backgroundColor: '#000000',
+                              borderRadius: '2px 2px 0 0',
                               transition: 'height 0.4s ease',
                               cursor: 'pointer',
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e53637')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#09090b')}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#52525b')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#000000')}
                             title={`${m}: ${barChartHeights[idx] * 600}`}
                           />
                           <span style={{ fontSize: '11px', color: '#71717a', position: 'absolute', bottom: '0px' }}>
@@ -1837,193 +2078,382 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             </div>
           )}
 
-          {/* VIEW 2: PRODUCTS / INVENTORY (Shadcn Data Table) */}
+          {/* VIEW 2: PRODUCTS / INVENTORY (Exact Match to Screenshot) */}
           {navSection === 'products' && (
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
-              padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#ffffff' }}>
+              {/* Top Header: Title, Subtitle, Search, and + Add Product */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '20px',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b' }}>
-                    Artwork Catalog
-                  </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
-                    Manage painting prices, framing, inventory status, and imagery in PostgreSQL.
+                  <h1 style={{
+                    fontSize: '24px',
+                    fontWeight: 700,
+                    color: '#000000',
+                    margin: '0 0 4px 0',
+                    fontFamily: "'Playfair Display', Georgia, serif",
+                    letterSpacing: '-0.01em',
+                  }}>
+                    Products Catalog
+                  </h1>
+                  <p style={{
+                    fontSize: '13px',
+                    color: '#6b7280',
+                    margin: 0,
+                    fontFamily: "'Playfair Display', Georgia, serif",
+                  }}>
+                    Manage merchandise, pricing, stock levels, and publication status.
                   </p>
                 </div>
-                <button onClick={openAddPaintingModal} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>
-                  <Plus size={15} /> Add Artwork
-                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {/* Search products input */}
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search
+                      size={13}
+                      color="#71717a"
+                      style={{ position: 'absolute', left: '10px', pointerEvents: 'none' }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      style={{
+                        padding: '7px 12px 7px 30px',
+                        fontSize: '12px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
+                        backgroundColor: '#ffffff',
+                        color: '#000000',
+                        width: '210px',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+
+                  {/* + Add Product Button */}
+                  <button
+                    type="button"
+                    onClick={openAddPaintingModal}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: '#000000',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '2px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <Plus size={14} /> Add Product
+                  </button>
+                </div>
               </div>
 
-              {/* Table */}
+              {/* Sub-bar: PRODUCT LISTING + Item Count Pill + Filters */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 0',
+                borderTop: '1px solid #e5e7eb',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    color: '#000000',
+                    fontFamily: "'Playfair Display', Georgia, serif",
+                    textTransform: 'uppercase',
+                  }}>
+                    PRODUCT LISTING
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    padding: '2px 7px',
+                    borderRadius: '2px',
+                    fontWeight: 500,
+                  }}>
+                    {filteredPaintings.length} items
+                  </span>
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowProductFilter(!showProductFilter)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
+                      padding: '5px 12px',
+                      fontSize: '12px',
+                      color: '#000000',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <Filter size={12} /> Filters
+                  </button>
+
+                  {/* Filter Dropdown */}
+                  {showProductFilter && (
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '100%',
+                      marginTop: '4px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      padding: '10px 12px',
+                      zIndex: 30,
+                      width: '200px',
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', marginBottom: '6px' }}>
+                        Category
+                      </div>
+                      <select
+                        value={productCategoryFilter}
+                        onChange={(e) => {
+                          setProductCategoryFilter(e.target.value);
+                          setShowProductFilter(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          fontSize: '12px',
+                          padding: '6px 8px',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '2px',
+                          backgroundColor: '#ffffff',
+                          color: '#000000',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Table Matching Screenshot */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>IMAGE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>TITLE & ARTIST</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STORE SECTION</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>MEDIUM</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>PRICE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STATUS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px', width: '30px' }}>
+                        <input type="checkbox" style={{ accentColor: '#000000', cursor: 'pointer' }} />
+                      </th>
+                      <th style={{ padding: '12px 14px' }}>PRODUCT NAME ∨</th>
+                      <th style={{ padding: '12px 14px' }}>CATEGORY ∨</th>
+                      <th style={{ padding: '12px 14px' }}>PRICE ∨</th>
+                      <th style={{ padding: '12px 14px' }}>STOCK ∨</th>
+                      <th style={{ padding: '12px 14px' }}>STATUS ∨</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paintings.map((p) => {
-                      const assignedSection = sections.find((s) => s.id === p.section_id) || p.section;
-                      return (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
-                          <td style={{ padding: '12px 14px' }}>
-                            <img
-                              src={p.image_url}
-                              alt={p.title}
-                              style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e4e4e7' }}
-                            />
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: 700, color: '#09090b' }}>{p.title}</div>
-                            <div style={{ fontSize: '12px', color: '#71717a' }}>{p.artist_name}</div>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            {assignedSection ? (
-                              <span style={{
-                                fontSize: '11px',
-                                padding: '3px 8px',
-                                borderRadius: '999px',
-                                backgroundColor: '#fef3c7',
-                                color: '#92400e',
-                                fontWeight: 700,
-                              }}>
-                                {assignedSection.name}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '11px', color: '#a1a1aa' }}>General</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '12px 14px', color: '#71717a' }}>
-                            {p.medium}
-                          </td>
-                          <td style={{ padding: '12px 14px', fontWeight: 800, color: '#09090b' }}>
-                            {formatPrice(p.price)}
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                              {/* Interactive Toggle Switch */}
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={p.status !== 'inactive'}
-                                onClick={() => handleToggleProductStatus(p)}
-                                title={p.status !== 'inactive' ? 'Product is Active. Click to make Inactive (hides buying option)' : 'Product is Inactive. Click to make Active (enables buying option)'}
-                                style={{
-                                  width: '42px',
-                                  height: '24px',
-                                  borderRadius: '999px',
-                                  backgroundColor: p.status !== 'inactive' ? '#16a34a' : '#d4d4d8',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  position: 'relative',
-                                  padding: '2px',
-                                  transition: 'background-color 0.2s ease',
-                                  outline: 'none',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <span
+                    {filteredPaintings.length > 0 ? (
+                      filteredPaintings.map((p) => {
+                        const categoryObj = categories.find((c) => c.id === p.category_id);
+                        const categoryName = categoryObj ? categoryObj.name : (typeof p.category === 'object' && p.category ? p.category.name : (typeof p.category === 'string' ? p.category : 'General'));
+                        const skuCode = `SBP-${String(p.id).padStart(4, '0')}`;
+                        const stockCount = ((p.id * 7) % 25 + 2);
+                        const isInactive = p.status === 'inactive';
+
+                        return (
+                          <tr key={p.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
+                            {/* Checkbox */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <input type="checkbox" style={{ accentColor: '#000000', cursor: 'pointer' }} />
+                            </td>
+
+                            {/* Product Image & Title */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <img
+                                  src={p.image_url}
+                                  alt={p.title}
                                   style={{
-                                    display: 'block',
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#ffffff',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-                                    transition: 'transform 0.2s ease',
-                                    transform: p.status !== 'inactive' ? 'translateX(18px)' : 'translateX(1px)',
+                                    width: '38px',
+                                    height: '38px',
+                                    objectFit: 'cover',
+                                    borderRadius: '2px',
+                                    border: '1px solid #e5e7eb',
+                                    flexShrink: 0,
                                   }}
                                 />
-                              </button>
+                                <div>
+                                  <div style={{
+                                    fontWeight: 700,
+                                    color: '#000000',
+                                    fontSize: '13.5px',
+                                    fontFamily: "'Playfair Display', Georgia, serif",
+                                    lineHeight: 1.3,
+                                  }}>
+                                    {p.title}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '11px',
+                                    color: '#71717a',
+                                    fontFamily: 'monospace, sans-serif',
+                                    marginTop: '2px',
+                                  }}>
+                                    {skuCode}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
 
-                              {/* Status text badge */}
-                              <span
+                            {/* Category */}
+                            <td style={{
+                              padding: '12px 14px',
+                              fontSize: '12.5px',
+                              color: '#111111',
+                              fontFamily: "'Playfair Display', Georgia, serif",
+                            }}>
+                              {categoryName}
+                            </td>
+
+                            {/* Price */}
+                            <td style={{
+                              padding: '12px 14px',
+                              fontWeight: 700,
+                              fontSize: '13px',
+                              color: '#000000',
+                            }}>
+                              {formatPrice(p.price)}
+                            </td>
+
+                            {/* Stock */}
+                            <td style={{
+                              padding: '12px 14px',
+                              fontSize: '12.5px',
+                              color: '#111111',
+                            }}>
+                              {stockCount}
+                            </td>
+
+                            {/* Status: ACTIVE (solid black) or INACTIVE (white with black border) */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProductStatus(p)}
+                                title="Click to toggle status between ACTIVE and INACTIVE"
                                 style={{
-                                  fontSize: '11px',
-                                  fontWeight: 800,
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.04em',
-                                  color: p.status !== 'inactive' ? '#166534' : '#71717a',
-                                  backgroundColor: p.status !== 'inactive' ? '#dcfce7' : '#f4f4f5',
+                                  backgroundColor: isInactive ? '#ffffff' : '#000000',
+                                  color: isInactive ? '#000000' : '#ffffff',
+                                  border: isInactive ? '1px solid #000000' : 'none',
                                   padding: '3px 8px',
-                                  borderRadius: '999px',
-                                  border: p.status !== 'inactive' ? '1px solid #bbf7d0' : '1px solid #e4e4e7',
+                                  borderRadius: '2px',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.05em',
+                                  textTransform: 'uppercase',
+                                  cursor: 'pointer',
+                                  display: 'inline-block',
                                 }}
                               >
-                                {p.status !== 'inactive' ? 'Active' : 'Inactive'}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                {isInactive ? 'INACTIVE' : 'ACTIVE'}
+                              </button>
+                            </td>
+
+                            {/* Actions: Edit & Delete text links */}
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                               <button
+                                type="button"
                                 onClick={() => openEditPaintingModal(p)}
                                 style={{
-                                  background: '#f4f4f5',
-                                  border: '1px solid #e4e4e7',
-                                  borderRadius: '4px',
-                                  padding: '6px 10px',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#000000',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
                                   cursor: 'pointer',
-                                  color: '#09090b',
+                                  padding: 0,
                                 }}
-                                title="Edit"
                               >
-                                <Edit size={14} />
+                                Edit
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDeletePainting(p.id)}
                                 style={{
-                                  background: '#fee2e2',
-                                  border: '1px solid #fecaca',
-                                  borderRadius: '4px',
-                                  padding: '6px 10px',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#71717a',
+                                  fontWeight: 500,
+                                  fontSize: '12px',
                                   cursor: 'pointer',
-                                  color: '#ef4444',
+                                  marginLeft: '12px',
+                                  padding: 0,
                                 }}
-                                title="Delete"
                               >
-                                <Trash2 size={14} />
+                                Delete
                               </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: '#71717a', fontSize: '13px' }}>
+                          No products found matching your search.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* VIEW 3: INQUIRIES & CRM (Shadcn Data Table) */}
+          {/* VIEW 3: INQUIRIES & CRM */}
           {navSection === 'inquiries' && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
                     Customer Inquiries & Cart Requests
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Direct CRM inquiries with 1-click WhatsApp messaging and status updates.
                   </p>
                 </div>
@@ -2031,12 +2461,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   value={inquiryStatusFilter}
                   onChange={(e) => setInquiryStatusFilter(e.target.value)}
                   style={{
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    border: '1px solid #e4e4e7',
-                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
                     backgroundColor: '#ffffff',
-                    color: '#09090b',
+                    color: '#000000',
+                    outline: 'none',
                   }}
                 >
                   <option value="">All Statuses</option>
@@ -2050,15 +2481,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
               {/* Inquiries Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>CODE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>CUSTOMER</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>ARTWORK</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>QUOTE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STATUS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>CONTACT</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px' }}>CODE</th>
+                      <th style={{ padding: '12px 14px' }}>CUSTOMER</th>
+                      <th style={{ padding: '12px 14px' }}>ARTWORK</th>
+                      <th style={{ padding: '12px 14px' }}>QUOTE</th>
+                      <th style={{ padding: '12px 14px' }}>STATUS</th>
+                      <th style={{ padding: '12px 14px' }}>CONTACT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2070,7 +2509,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         return (
                           <tr key={inq.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
                             <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontWeight: 800, color: '#e53637', fontSize: '13.5px' }}>
+                              <div style={{ fontWeight: 700, color: '#000000', fontSize: '13px', fontFamily: 'monospace' }}>
                                 {inq.inquiry_code}
                               </div>
                               <div style={{
@@ -2104,10 +2543,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               </div>
                             </td>
                             <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontWeight: 700, color: '#09090b', fontSize: '14px' }}>{inq.customer_name}</div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12.5px', color: '#09090b', fontWeight: 600, marginTop: '2px' }}>
-                                <Phone size={12} color="#e53637" />
-                                <a href={`tel:${inq.customer_phone}`} style={{ color: '#09090b', textDecoration: 'none' }}>
+                              <div style={{ fontWeight: 700, color: '#000000', fontSize: '13.5px', fontFamily: "'Playfair Display', Georgia, serif" }}>{inq.customer_name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#000000', fontWeight: 600, marginTop: '2px' }}>
+                                <Phone size={12} color="#000000" />
+                                <a href={`tel:${inq.customer_phone}`} style={{ color: '#000000', textDecoration: 'none' }}>
                                   {inq.customer_phone}
                                 </a>
                               </div>
@@ -2115,14 +2554,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               <div style={{ fontSize: '12px', color: '#71717a' }}>{inq.shipping_address}</div>
                             </td>
                             <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontWeight: 600, color: '#09090b' }}>
+                              <div style={{ fontWeight: 600, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
                                 {inq.painting?.title || 'Original Art'}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#71717a' }}>
+                              <div style={{ fontSize: '11px', color: '#71717a', fontFamily: 'monospace' }}>
                                 ID: #{inq.painting_id}
                               </div>
                             </td>
-                            <td style={{ padding: '12px 14px', fontWeight: 800, color: '#09090b' }}>
+                            <td style={{ padding: '12px 14px', fontWeight: 700, color: '#000000' }}>
                               {formatPrice(inq.quoted_price)}
                             </td>
                             <td style={{ padding: '12px 14px' }}>
@@ -2131,12 +2570,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 onChange={(e) => handleStatusChange(inq.id, e.target.value)}
                                 style={{
                                   padding: '4px 8px',
-                                  fontSize: '12px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e4e4e7',
+                                  fontSize: '11px',
+                                  borderRadius: '2px',
+                                  border: '1px solid #e5e7eb',
                                   backgroundColor: '#ffffff',
-                                  color: '#09090b',
+                                  color: '#000000',
                                   fontWeight: 600,
+                                  outline: 'none',
                                 }}
                               >
                                 <option value="new">New / Under Review</option>
@@ -2158,12 +2598,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     justifyContent: 'center',
                                     gap: '6px',
                                     padding: '5px 10px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#25D366',
+                                    borderRadius: '2px',
+                                    backgroundColor: '#000000',
                                     color: '#ffffff',
                                     textDecoration: 'none',
                                     fontWeight: 700,
-                                    fontSize: '12px',
+                                    fontSize: '11px',
+                                    letterSpacing: '0.04em',
                                   }}
                                 >
                                   <MessageCircle size={13} /> WhatsApp
@@ -2176,16 +2617,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     justifyContent: 'center',
                                     gap: '6px',
                                     padding: '4px 10px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#f4f4f5',
-                                    border: '1px solid #e4e4e7',
-                                    color: '#09090b',
+                                    borderRadius: '2px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #e5e7eb',
+                                    color: '#000000',
                                     textDecoration: 'none',
                                     fontWeight: 600,
                                     fontSize: '11px',
                                   }}
                                 >
-                                  <Phone size={12} /> Call Now
+                                  <Phone size={11} /> Call Now
                                 </a>
                               </div>
                             </td>
@@ -2205,22 +2646,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             </div>
           )}
 
-          {/* VIEW: USERS MANAGEMENT (Shadcn Data Table) */}
+          {/* VIEW: USERS MANAGEMENT */}
           {navSection === 'users' && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Users size={18} color="#09090b" />
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Users & Collector Accounts
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     View all registered customers, collectors, and admins stored in PostgreSQL.
                   </p>
                 </div>
@@ -2231,11 +2670,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    backgroundColor: '#f4f4f5',
+                    backgroundColor: '#ffffff',
                     padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #e4e4e7',
-                    width: '220px',
+                    borderRadius: '2px',
+                    border: '1px solid #e5e7eb',
+                    width: '210px',
                   }}>
                     <Search size={13} color="#71717a" />
                     <input
@@ -2247,8 +2686,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         background: 'none',
                         border: 'none',
                         outline: 'none',
-                        fontSize: '12.5px',
-                        color: '#09090b',
+                        fontSize: '12px',
+                        color: '#000000',
                         width: '100%',
                         fontFamily: 'inherit',
                       }}
@@ -2259,12 +2698,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     value={userRoleFilter}
                     onChange={(e) => setUserRoleFilter(e.target.value)}
                     style={{
-                      padding: '7px 12px',
-                      fontSize: '13px',
-                      border: '1px solid #e4e4e7',
-                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
                       backgroundColor: '#ffffff',
-                      color: '#09090b',
+                      color: '#000000',
+                      outline: 'none',
                     }}
                   >
                     <option value="">All Roles ({users.length})</option>
@@ -2276,15 +2716,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
               {/* Users Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>USER</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>CONTACT & LOCATION</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>ROLE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STATUS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>REGISTERED DATE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px' }}>USER</th>
+                      <th style={{ padding: '12px 14px' }}>CONTACT & LOCATION</th>
+                      <th style={{ padding: '12px 14px' }}>ROLE</th>
+                      <th style={{ padding: '12px 14px' }}>STATUS</th>
+                      <th style={{ padding: '12px 14px' }}>REGISTERED DATE</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2304,27 +2752,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             <td style={{ padding: '12px 14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
-                                  width: '38px',
-                                  height: '38px',
-                                  borderRadius: '50%',
-                                  backgroundColor: u.role === 'admin' ? '#09090b' : '#f4f4f5',
-                                  color: u.role === 'admin' ? '#ffffff' : '#18181b',
-                                  border: '1px solid #e4e4e7',
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '2px',
+                                  backgroundColor: u.role === 'admin' ? '#000000' : '#f4f4f5',
+                                  color: u.role === 'admin' ? '#ffffff' : '#000000',
+                                  border: '1px solid #e5e7eb',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontWeight: 800,
-                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  fontSize: '11px',
                                   flexShrink: 0,
                                 }}>
                                   {initials}
                                 </div>
                                 <div>
-                                  <div style={{ fontWeight: 700, color: '#09090b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <div style={{ fontWeight: 700, color: '#000000', fontSize: '13.5px', fontFamily: "'Playfair Display', Georgia, serif", display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     {u.full_name}
                                     {u.role === 'admin' && (
                                       <span title="Administrator" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                        <ShieldCheck size={14} color="#e53637" />
+                                        <ShieldCheck size={13} color="#000000" />
                                       </span>
                                     )}
                                   </div>
@@ -2336,9 +2784,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             {/* Contact & Location */}
                             <td style={{ padding: '12px 14px' }}>
                               {u.phone ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, color: '#09090b', fontSize: '13px' }}>
-                                  <Phone size={12} color="#e53637" />
-                                  <a href={`tel:${u.phone}`} style={{ color: '#09090b', textDecoration: 'none' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, color: '#000000', fontSize: '12px' }}>
+                                  <Phone size={11} color="#000000" />
+                                  <a href={`tel:${u.phone}`} style={{ color: '#000000', textDecoration: 'none' }}>
                                     {u.phone}
                                   </a>
                                 </div>
@@ -2354,72 +2802,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             {/* Role Badge */}
                             <td style={{ padding: '12px 14px' }}>
                               <span style={{
-                                padding: '3px 10px',
-                                borderRadius: '999px',
-                                fontSize: '11px',
-                                fontWeight: 800,
+                                padding: '3px 8px',
+                                borderRadius: '2px',
+                                fontSize: '10px',
+                                fontWeight: 700,
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.04em',
-                                backgroundColor: u.role === 'admin' ? '#09090b' : '#eff6ff',
-                                color: u.role === 'admin' ? '#ffffff' : '#1d4ed8',
-                                border: u.role === 'admin' ? 'none' : '1px solid #bfdbfe',
+                                letterSpacing: '0.05em',
+                                backgroundColor: u.role === 'admin' ? '#000000' : '#ffffff',
+                                color: u.role === 'admin' ? '#ffffff' : '#000000',
+                                border: u.role === 'admin' ? 'none' : '1px solid #000000',
                               }}>
                                 {u.role}
                               </span>
                             </td>
 
-                            {/* Status Active / Inactive Toggle Switch */}
+                            {/* Status Active / Inactive Button */}
                             <td style={{ padding: '12px 14px' }}>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={u.is_active}
-                                  onClick={() => handleToggleUserActive(u)}
-                                  title={u.is_active ? 'Click to deactivate account' : 'Click to activate account'}
-                                  style={{
-                                    width: '38px',
-                                    height: '22px',
-                                    borderRadius: '999px',
-                                    backgroundColor: u.is_active ? '#16a34a' : '#d4d4d8',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    position: 'relative',
-                                    padding: '2px',
-                                    transition: 'background-color 0.2s ease',
-                                    outline: 'none',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      display: 'block',
-                                      width: '16px',
-                                      height: '16px',
-                                      borderRadius: '50%',
-                                      backgroundColor: '#ffffff',
-                                      boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-                                      transition: 'transform 0.2s ease',
-                                      transform: u.is_active ? 'translateX(16px)' : 'translateX(1px)',
-                                    }}
-                                  />
-                                </button>
-                                <span style={{
-                                  fontSize: '11px',
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUserActive(u)}
+                                title="Click to toggle active status"
+                                style={{
+                                  backgroundColor: u.is_active ? '#000000' : '#ffffff',
+                                  color: u.is_active ? '#ffffff' : '#000000',
+                                  border: u.is_active ? 'none' : '1px solid #000000',
+                                  padding: '3px 8px',
+                                  borderRadius: '2px',
+                                  fontSize: '10px',
                                   fontWeight: 700,
+                                  letterSpacing: '0.05em',
                                   textTransform: 'uppercase',
-                                  color: u.is_active ? '#166534' : '#71717a',
-                                }}>
-                                  {u.is_active ? 'Active' : 'Disabled'}
-                                </span>
-                              </div>
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {u.is_active ? 'ACTIVE' : 'DISABLED'}
+                              </button>
                             </td>
 
                             {/* Registered Date */}
                             <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontSize: '12.5px', color: '#09090b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Calendar size={12} color="#71717a" />
+                              <div style={{ fontSize: '12px', color: '#000000', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Calendar size={11} color="#71717a" />
                                 {new Date(u.created_at).toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
@@ -2428,9 +2851,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               </div>
                             </td>
 
-                            {/* Actions / Direct Contact */}
-                            <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {/* Actions */}
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {whatsappUrl && (
                                   <a
                                     href={whatsappUrl}
@@ -2440,60 +2863,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '4px',
-                                      padding: '5px 9px',
-                                      borderRadius: '4px',
-                                      backgroundColor: '#25D366',
+                                      padding: '4px 8px',
+                                      borderRadius: '2px',
+                                      backgroundColor: '#000000',
                                       color: '#ffffff',
                                       textDecoration: 'none',
-                                      fontWeight: 700,
-                                      fontSize: '11.5px',
+                                      fontWeight: 600,
+                                      fontSize: '11px',
                                     }}
                                     title="WhatsApp user"
                                   >
-                                    <MessageCircle size={12} /> WhatsApp
-                                  </a>
-                                )}
-                                {u.phone && (
-                                  <a
-                                    href={`tel:${u.phone}`}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '5px 9px',
-                                      borderRadius: '4px',
-                                      backgroundColor: '#f4f4f5',
-                                      border: '1px solid #e4e4e7',
-                                      color: '#09090b',
-                                      textDecoration: 'none',
-                                      fontWeight: 600,
-                                      fontSize: '11.5px',
-                                    }}
-                                    title="Call user"
-                                  >
-                                    <Phone size={12} /> Call
+                                    <MessageCircle size={11} /> WhatsApp
                                   </a>
                                 )}
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteUser(u)}
                                   style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '5px 9px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#fee2e2',
-                                    border: '1px solid #fecaca',
-                                    color: '#dc2626',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#71717a',
+                                    fontWeight: 500,
+                                    fontSize: '12px',
                                     cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '11.5px',
-                                    transition: 'all 0.15s ease',
+                                    padding: 0,
                                   }}
                                   title="Delete user account"
                                 >
-                                  <Trash2 size={12} /> Delete
+                                  Delete
                                 </button>
                               </div>
                             </td>
@@ -2519,8 +2916,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* Header Bar */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '20px 24px',
                 display: 'flex',
                 alignItems: 'center',
@@ -2529,10 +2926,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 gap: '16px',
               }}>
                 <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                  <h2 style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#000000',
+                    margin: 0,
+                    fontFamily: "'Playfair Display', Georgia, serif",
+                  }}>
                     Homepage Hero Banners
                   </h2>
-                  <p style={{ fontSize: '13px', color: '#71717a', margin: '4px 0 0 0' }}>
+                  <p style={{
+                    fontSize: '13px',
+                    color: '#6b7280',
+                    margin: '4px 0 0 0',
+                    fontFamily: "'Playfair Display', Georgia, serif",
+                  }}>
                     Edit the promotional banners, headlines, description text, artist names, prices, and artwork images shown on the store hero slider.
                   </p>
                 </div>
@@ -2545,16 +2953,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       alignItems: 'center',
                       gap: '6px',
                       padding: '8px 14px',
-                      borderRadius: '6px',
-                      border: '1px solid #e4e4e7',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
                       backgroundColor: '#ffffff',
-                      color: '#09090b',
-                      fontSize: '13px',
+                      color: '#000000',
+                      fontSize: '12.5px',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
                   >
-                    <RefreshCw size={14} /> Refresh
+                    <RefreshCw size={13} /> Refresh
                   </button>
 
                   <button
@@ -2563,17 +2971,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '9px 18px',
-                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '2px',
                       border: 'none',
-                      backgroundColor: '#09090b',
+                      backgroundColor: '#000000',
                       color: '#ffffff',
-                      fontSize: '13px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
                     }}
                   >
-                    <Plus size={15} /> Add Hero Banner
+                    <Plus size={14} /> Add Hero Banner
                   </button>
                 </div>
               </div>
@@ -2582,8 +2990,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {banners.filter(b => b.is_active).length > 0 && (
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
                 }}>
                   <div style={{
@@ -2596,16 +3004,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   }}>
                     <div style={{
                       fontSize: '12px',
-                      fontWeight: 800,
+                      fontWeight: 700,
                       textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.05em',
                       color: '#71717a',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
                     }}>
-                      <Sun size={14} color="#e53637" /> Live Homepage Hero Preview &mdash;
-                      <span style={{ color: '#09090b', fontWeight: 800, textTransform: 'none', fontSize: '13px' }}>
+                      <Sun size={14} color="#000000" /> Live Homepage Hero Preview &mdash;
+                      <span style={{ color: '#000000', fontWeight: 700, textTransform: 'none', fontSize: '13px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                         {(selectedPreviewBannerId ? banners.find(b => b.id === selectedPreviewBannerId) : null)?.title || (banners.find(b => b.is_active) || banners[0])?.title}
                       </span>
                     </div>
@@ -2781,7 +3189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                   {previewBanner.title}
                                 </div>
                               </div>
-                              <div style={{ fontSize: '12px', fontWeight: 800, color: '#e53637' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: '#000000' }}>
                                 {formatPrice(previewBanner.price)}
                               </div>
                             </div>
@@ -2796,18 +3204,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* Banners Table */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 overflow: 'hidden',
               }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#09090b' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
                       All Configured Hero Banners ({banners.length})
                     </div>
-                    {/* <div style={{ fontSize: '12px', color: '#0284c7', marginTop: '2px', fontWeight: 600 }}>
-                      💡 Click any banner row or click &quot;Preview&quot; to show that banner in the top hero preview box.
-                    </div> */}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
                     Active banners will rotate in the homepage hero slider
@@ -2815,15 +3220,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                     <thead>
-                      <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>COLORS & ARTWORK</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>PROMO TAG & HEADLINE</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>ARTIST & DISPLAY PRICE</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>BUTTON TEXT</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>STATUS</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                      <tr style={{ borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '12px 14px' }}>COLORS & ARTWORK</th>
+                        <th style={{ padding: '12px 14px' }}>PROMO TAG & HEADLINE</th>
+                        <th style={{ padding: '12px 14px' }}>ARTIST & DISPLAY PRICE</th>
+                        <th style={{ padding: '12px 14px' }}>BUTTON TEXT</th>
+                        <th style={{ padding: '12px 14px' }}>STATUS</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2839,13 +3244,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               style={{
                                 borderBottom: '1px solid #f4f4f5',
                                 cursor: 'pointer',
-                                backgroundColor: isCurrentlyPreviewed ? '#f0f9ff' : 'transparent',
+                                backgroundColor: isCurrentlyPreviewed ? '#f4f4f5' : 'transparent',
                                 transition: 'background-color 0.15s ease',
                               }}
                               title="Click to view this banner in the top preview"
                             >
                               {/* Artwork Image, Circle Swatch & BG Swatch */}
-                              <td style={{ padding: '12px 16px' }}>
+                              <td style={{ padding: '12px 14px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                   <div style={{
                                     position: 'relative',
@@ -2855,8 +3260,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     backgroundColor: b.bg_color || '#f3f2ee',
-                                    borderRadius: '6px',
-                                    border: isCurrentlyPreviewed ? '2px solid #0284c7' : '1px solid #e4e4e7',
+                                    borderRadius: '2px',
+                                    border: isCurrentlyPreviewed ? '2px solid #000000' : '1px solid #e5e7eb',
                                   }}>
                                     <div style={{
                                       position: 'absolute',
@@ -2898,64 +3303,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               </td>
 
                               {/* Tag & Headline */}
-                              <td style={{ padding: '12px 16px' }}>
+                              <td style={{ padding: '12px 14px' }}>
                                 <div style={{
-                                  color: '#e53637',
+                                  color: '#000000',
                                   fontSize: '11px',
-                                  fontWeight: 800,
+                                  fontWeight: 700,
                                   letterSpacing: '0.08em',
                                   textTransform: 'uppercase',
                                   marginBottom: '2px',
                                 }}>
                                   {b.tag}
                                 </div>
-                                {/* <div style={{ fontWeight: 700, color: '#09090b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {b.title}
-                                  {isCurrentlyPreviewed && (
-                                    <span style={{
-                                      fontSize: '10px',
-                                      padding: '1px 6px',
-                                      borderRadius: '4px',
-                                      backgroundColor: '#0284c7',
-                                      color: '#ffffff',
-                                      fontWeight: 800,
-                                    }}>
-                                      PREVIEWING
-                                    </span>
-                                  )}
-                                </div> */}
                                 <div style={{ fontSize: '12px', color: '#71717a', maxWidth: '340px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {b.description}
                                 </div>
                               </td>
 
                               {/* Artist & Price */}
-                              <td style={{ padding: '12px 16px' }}>
-                                <div style={{ fontWeight: 700, color: '#09090b', fontSize: '13px' }}>
+                              <td style={{ padding: '12px 14px' }}>
+                                <div style={{ fontWeight: 700, color: '#000000', fontSize: '13px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                                   {b.artist_name}
                                 </div>
-                                <div style={{ fontSize: '14px', fontWeight: 800, color: '#e53637', marginTop: '2px' }}>
+                                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#000000', marginTop: '2px' }}>
                                   {formatPrice(b.price)}
                                 </div>
                               </td>
 
                               {/* Button Text */}
-                              <td style={{ padding: '12px 16px' }}>
+                              <td style={{ padding: '12px 14px' }}>
                                 <span style={{
                                   padding: '4px 10px',
-                                  backgroundColor: '#f4f4f5',
-                                  borderRadius: '4px',
+                                  backgroundColor: '#ffffff',
+                                  borderRadius: '2px',
                                   fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  color: '#18181b',
-                                  border: '1px solid #e4e4e7',
+                                  fontWeight: 600,
+                                  color: '#000000',
+                                  border: '1px solid #e5e7eb',
                                 }}>
                                   {b.button_text}
                                 </span>
                               </td>
 
                               {/* Active Switch */}
-                              <td style={{ padding: '12px 16px' }}>
+                              <td style={{ padding: '12px 14px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <button
                                     type="button"
@@ -2968,7 +3358,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                       width: '36px',
                                       height: '20px',
                                       borderRadius: '999px',
-                                      backgroundColor: b.is_active ? '#16a34a' : '#d4d4d8',
+                                      backgroundColor: b.is_active ? '#000000' : '#e5e7eb',
                                       border: 'none',
                                       position: 'relative',
                                       cursor: 'pointer',
@@ -2994,7 +3384,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     fontSize: '11px',
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    color: b.is_active ? '#166534' : '#71717a',
+                                    color: b.is_active ? '#000000' : '#71717a',
                                   }}>
                                     {b.is_active ? 'Active' : 'Hidden'}
                                   </span>
@@ -3002,81 +3392,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               </td>
 
                               {/* Actions */}
-                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                  {/* <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPreviewBannerId(b.id);
-                                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '6px 11px',
-                                      borderRadius: '4px',
-                                      backgroundColor: isCurrentlyPreviewed ? '#0284c7' : '#f4f4f5',
-                                      border: isCurrentlyPreviewed ? '1px solid #0284c7' : '1px solid #e4e4e7',
-                                      color: isCurrentlyPreviewed ? '#ffffff' : '#09090b',
-                                      cursor: 'pointer',
-                                      fontWeight: 700,
-                                      fontSize: '12px',
-                                      transition: 'all 0.15s ease',
-                                    }}
-                                    title="Show this banner in the top preview"
-                                  >
-                                    <Eye size={13} /> {isCurrentlyPreviewed ? 'Previewing' : 'Preview'}
-                                  </button> */}
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openEditBannerModal(b);
-                                    }}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '6px 11px',
-                                      borderRadius: '4px',
-                                      backgroundColor: '#f4f4f5',
-                                      border: '1px solid #e4e4e7',
-                                      color: '#09090b',
-                                      cursor: 'pointer',
-                                      fontWeight: 600,
-                                      fontSize: '12px',
-                                    }}
-                                  >
-                                    <Edit size={13} /> Edit Content
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteBanner(b.id);
-                                    }}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '6px 10px',
-                                      borderRadius: '4px',
-                                      backgroundColor: '#fee2e2',
-                                      border: '1px solid #fecaca',
-                                      color: '#dc2626',
-                                      cursor: 'pointer',
-                                      fontWeight: 600,
-                                      fontSize: '12px',
-                                    }}
-                                    title="Delete Hero Banner"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
+                              <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditBannerModal(b);
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#000000',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteBanner(b.id);
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#71717a',
+                                    fontWeight: 500,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    marginLeft: '12px',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Delete
+                                </button>
                               </td>
                             </tr>
                           );
@@ -3095,47 +3448,354 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             </div>
           )}
 
+          {/* VIEW: SHOWCASE MARQUEE MANAGEMENT */}
+          {navSection === 'showcase' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Header Card */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
+                padding: '24px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif", margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Sparkles size={18} color="#000000" /> Showcase Marquee Images
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    Upload and manage promotional photos displayed in the continuous moving marquee (next to the &quot;Spring Sale&quot; countdown).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openAddShowcaseModal}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '9px 18px',
+                    borderRadius: '2px',
+                    border: 'none',
+                    backgroundColor: '#000000',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={14} /> Add Showcase Image
+                </button>
+              </div>
+
+              {/* Live Preview Strip */}
+              {showcases.filter((s) => s.is_active).length > 0 && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '20px 24px',
+                }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
+                    Live Preview Strip ({showcases.filter((s) => s.is_active).length} Active Photos)
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '14px',
+                    overflowX: 'auto',
+                    paddingBottom: '8px',
+                  }}>
+                    {showcases.filter((s) => s.is_active).map((item) => (
+                      <div
+                        key={`preview-sc-${item.id}`}
+                        style={{
+                          width: '180px',
+                          height: '140px',
+                          flexShrink: 0,
+                          position: 'relative',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #e5e7eb',
+                        }}
+                      >
+                        <img
+                          src={item.image_url}
+                          alt={item.title || 'Showcase'}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        {item.tag && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '6px',
+                            left: '6px',
+                            backgroundColor: 'rgba(27, 59, 43, 0.9)',
+                            color: '#ffffff',
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                          }}>
+                            {item.tag}
+                          </div>
+                        )}
+                        {item.title && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: '10px 8px 6px',
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)',
+                            color: '#ffffff',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {item.title}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Showcase Items Table */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
+                overflow: 'hidden',
+              }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    All Showcase Photos ({showcases.length})
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#71717a' }}>
+                    Active photos appear in the scrolling marquee with smooth infinite loop
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '12px 14px', width: '100px' }}>PREVIEW</th>
+                        <th style={{ padding: '12px 14px' }}>BADGE / TAG</th>
+                        <th style={{ padding: '12px 14px' }}>TITLE & CAPTION</th>
+                        <th style={{ padding: '12px 14px', width: '90px' }}>ORDER</th>
+                        <th style={{ padding: '12px 14px', width: '120px' }}>STATUS</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'right', width: '130px' }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {showcases.length > 0 ? (
+                        showcases.map((item) => (
+                          <tr key={item.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{
+                                width: '90px',
+                                height: '65px',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                border: '1px solid #e5e7eb',
+                                backgroundColor: '#18181b',
+                              }}>
+                                <img
+                                  src={item.image_url}
+                                  alt={item.title || 'Showcase'}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              </div>
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              {item.tag ? (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '3px 8px',
+                                  borderRadius: '3px',
+                                  backgroundColor: '#1b3b2b',
+                                  color: '#ffffff',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                }}>
+                                  {item.tag}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#000000' }}>
+                                {item.title || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Untitled</span>}
+                              </div>
+                              {item.description && (
+                                <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px', maxWidth: '340px' }}>
+                                  {item.description}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', fontSize: '13px', color: '#374151' }}>
+                              #{item.display_order}
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleShowcaseActive(item.id)}
+                                  style={{
+                                    width: '36px',
+                                    height: '20px',
+                                    borderRadius: '999px',
+                                    backgroundColor: item.is_active ? '#000000' : '#e5e7eb',
+                                    border: 'none',
+                                    position: 'relative',
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    transition: 'background-color 0.2s ease',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      borderRadius: '50%',
+                                      backgroundColor: '#ffffff',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                                      transition: 'transform 0.2s ease',
+                                      transform: item.is_active ? 'translateX(16px)' : 'translateX(1px)',
+                                    }}
+                                  />
+                                </button>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  color: item.is_active ? '#000000' : '#71717a',
+                                }}>
+                                  {item.is_active ? 'Active' : 'Hidden'}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => openEditShowcaseModal(item)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#000000',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteShowcase(item.id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#71717a',
+                                  fontWeight: 500,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  marginLeft: '12px',
+                                  padding: 0,
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: '#71717a' }}>
+                            No showcase photos uploaded yet. Click &quot;Add Showcase Image&quot; to upload your first photo.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* VIEW 5: STORE PRODUCT SECTIONS */}
           {navSection === 'sections' && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
                     Store Product Sections
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Manage sections (e.g. Best Sellers, New Arrivals, Hot Sales). Each section is displayed one by one on the storefront.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={openAddSectionModal}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '2px',
+                    border: 'none',
+                    backgroundColor: '#000000',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Plus size={15} /> Add New Section
+                  <Plus size={14} /> Add New Section
                 </button>
               </div>
 
               {/* Sections Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, width: '60px' }}>ORDER</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, width: '70px' }}>IMAGE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>SECTION NAME</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>SLUG</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>DESCRIPTION</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>ASSIGNED ARTWORKS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STATUS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px', width: '60px' }}>ORDER</th>
+                      <th style={{ padding: '12px 14px', width: '70px' }}>IMAGE</th>
+                      <th style={{ padding: '12px 14px' }}>SECTION NAME</th>
+                      <th style={{ padding: '12px 14px' }}>SLUG</th>
+                      <th style={{ padding: '12px 14px' }}>DESCRIPTION</th>
+                      <th style={{ padding: '12px 14px' }}>ASSIGNED ARTWORKS</th>
+                      <th style={{ padding: '12px 14px' }}>STATUS</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3144,17 +3804,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         const count = paintings.filter((p) => p.section_id === sec.id).length;
                         return (
                           <tr key={sec.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
-                            <td style={{ padding: '14px', fontWeight: 800, color: '#71717a' }}>
+                            <td style={{ padding: '12px 14px', fontWeight: 700, color: '#71717a' }}>
                               #{sec.display_order}
                             </td>
-                            <td style={{ padding: '14px' }}>
+                            <td style={{ padding: '12px 14px' }}>
                               <div style={{
                                 width: '48px',
                                 height: '36px',
-                                borderRadius: '4px',
+                                borderRadius: '2px',
                                 overflow: 'hidden',
-                                backgroundColor: '#f1f5f9',
-                                border: '1px solid #e2e8f0',
+                                backgroundColor: '#f4f4f5',
+                                border: '1px solid #e5e7eb',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -3166,99 +3826,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                   />
                                 ) : (
-                                  <Layers size={16} color="#94a3b8" />
+                                  <Layers size={16} color="#71717a" />
                                 )}
                               </div>
                             </td>
-                            <td style={{ padding: '14px' }}>
-                              <div style={{ fontWeight: 800, fontSize: '14px', color: '#09090b' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
                                 {sec.name}
                               </div>
                             </td>
-                            <td style={{ padding: '14px', fontFamily: 'monospace', fontSize: '12.5px', color: '#71717a' }}>
+                            <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '12px', color: '#71717a' }}>
                               /{sec.slug}
                             </td>
-                            <td style={{ padding: '14px', color: '#52525b', fontSize: '13px', maxWidth: '300px' }}>
+                            <td style={{ padding: '12px 14px', color: '#52525b', fontSize: '12.5px', maxWidth: '300px' }}>
                               {sec.description || '—'}
                             </td>
-                            <td style={{ padding: '14px' }}>
+                            <td style={{ padding: '12px 14px' }}>
                               <span style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                padding: '3px 10px',
-                                borderRadius: '999px',
-                                backgroundColor: count > 0 ? '#e0f2fe' : '#f4f4f5',
-                                color: count > 0 ? '#0369a1' : '#71717a',
-                                fontWeight: 700,
-                                fontSize: '12px',
+                                padding: '3px 8px',
+                                borderRadius: '2px',
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #e5e7eb',
+                                color: '#000000',
+                                fontWeight: 600,
+                                fontSize: '11px',
                               }}>
-                                <ShoppingBag size={12} />
+                                <ShoppingBag size={11} color="#000000" />
                                 {count} {count === 1 ? 'artwork' : 'artworks'}
                               </span>
                             </td>
-                            <td style={{ padding: '14px' }}>
+                            <td style={{ padding: '12px 14px' }}>
                               <span style={{
                                 padding: '3px 8px',
-                                borderRadius: '999px',
-                                fontSize: '11px',
+                                borderRadius: '2px',
+                                fontSize: '10px',
                                 fontWeight: 700,
-                                backgroundColor: sec.is_active ? '#dcfce7' : '#f4f4f5',
-                                color: sec.is_active ? '#15803d' : '#71717a',
+                                letterSpacing: '0.05em',
+                                textTransform: 'uppercase',
+                                backgroundColor: sec.is_active ? '#000000' : '#ffffff',
+                                color: sec.is_active ? '#ffffff' : '#000000',
+                                border: sec.is_active ? 'none' : '1px solid #000000',
                               }}>
-                                {sec.is_active ? 'Active' : 'Hidden'}
+                                {sec.is_active ? 'ACTIVE' : 'HIDDEN'}
                               </span>
                             </td>
-                            <td style={{ padding: '14px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => openEditSectionModal(sec)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#f4f4f5',
-                                    border: '1px solid #e4e4e7',
-                                    color: '#09090b',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                  }}
-                                  title="Edit Section"
-                                >
-                                  <Edit size={13} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteSection(sec.id)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '6px 10px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#fee2e2',
-                                    border: '1px solid #fecaca',
-                                    color: '#dc2626',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                  }}
-                                  title="Delete Section"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => openEditSectionModal(sec)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#000000',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSection(sec.id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#71717a',
+                                  fontWeight: 500,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  marginLeft: '12px',
+                                  padding: 0,
+                                }}
+                              >
+                                Delete
+                              </button>
                             </td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: '#71717a' }}>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: '#71717a' }}>
                           No product sections found. Click &quot;Add New Section&quot; to create one.
                         </td>
                       </tr>
@@ -3273,41 +3926,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
           {navSection === 'categories' && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b' }}>
-                    Product Categories
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
+                    Product Collections
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
-                    Manage art categories and upload cover images for the circular storefront category pills and filters.
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    Manage art collections and upload cover images for the circular storefront collection pills and filters.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={openAddCategoryModal}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '2px',
+                    border: 'none',
+                    backgroundColor: '#000000',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Plus size={15} /> Add New Category
+                  <Plus size={14} /> Add New Collection
                 </button>
               </div>
 
               {/* Categories Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, width: '70px' }}>IMAGE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>CATEGORY NAME</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>SLUG</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>DESCRIPTION</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>ASSIGNED ARTWORKS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px', width: '70px' }}>IMAGE</th>
+                      <th style={{ padding: '12px 14px' }}>COLLECTION NAME</th>
+                      <th style={{ padding: '12px 14px' }}>SLUG</th>
+                      <th style={{ padding: '12px 14px' }}>DESCRIPTION</th>
+                      <th style={{ padding: '12px 14px' }}>ASSIGNED ARTWORKS</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3323,16 +3994,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           <tr key={cat.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
                             <td style={{ padding: '12px 14px' }}>
                               <div style={{
-                                width: '48px',
-                                height: '48px',
+                                width: '44px',
+                                height: '44px',
                                 borderRadius: '50%',
                                 overflow: 'hidden',
-                                backgroundColor: '#f1f5f9',
-                                border: '1px solid #e4e4e7',
+                                backgroundColor: '#f4f4f5',
+                                border: '1px solid #e5e7eb',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                               }}>
                                 {displayImg ? (
                                   <img
@@ -3341,82 +4011,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                   />
                                 ) : (
-                                  <span style={{ fontWeight: 800, color: '#64748b', fontSize: '16px' }}>
+                                  <span style={{ fontWeight: 700, color: '#71717a', fontSize: '14px' }}>
                                     {cat.name.charAt(0).toUpperCase()}
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td style={{ padding: '14px' }}>
-                              <div style={{ fontWeight: 800, fontSize: '14px', color: '#09090b' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
                                 {cat.name}
                               </div>
                             </td>
-                            <td style={{ padding: '14px', fontFamily: 'monospace', fontSize: '12.5px', color: '#71717a' }}>
+                            <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '12px', color: '#71717a' }}>
                               /{cat.slug}
                             </td>
-                            <td style={{ padding: '14px', color: '#52525b', fontSize: '13px', maxWidth: '300px' }}>
+                            <td style={{ padding: '12px 14px', color: '#52525b', fontSize: '12.5px', maxWidth: '300px' }}>
                               {cat.description || '—'}
                             </td>
-                            <td style={{ padding: '14px' }}>
+                            <td style={{ padding: '12px 14px' }}>
                               <span style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                padding: '3px 10px',
-                                borderRadius: '999px',
-                                backgroundColor: count > 0 ? '#fce7f3' : '#f4f4f5',
-                                color: count > 0 ? '#be185d' : '#71717a',
-                                fontWeight: 700,
-                                fontSize: '12px',
+                                padding: '3px 8px',
+                                borderRadius: '2px',
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #e5e7eb',
+                                color: '#000000',
+                                fontWeight: 600,
+                                fontSize: '11px',
                               }}>
-                                <ShoppingBag size={12} />
+                                <ShoppingBag size={11} color="#000000" />
                                 {count} {count === 1 ? 'artwork' : 'artworks'}
                               </span>
                             </td>
-                            <td style={{ padding: '14px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => openEditCategoryModal(cat)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#f4f4f5',
-                                    border: '1px solid #e4e4e7',
-                                    color: '#09090b',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                  }}
-                                  title="Edit Category"
-                                >
-                                  <Edit size={13} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCategory(cat.id)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '6px 10px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#fee2e2',
-                                    border: '1px solid #fecaca',
-                                    color: '#dc2626',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                  }}
-                                  title="Delete Category"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => openEditCategoryModal(cat)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#000000',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#71717a',
+                                  fontWeight: 500,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  marginLeft: '12px',
+                                  padding: 0,
+                                }}
+                              >
+                                Delete
+                              </button>
                             </td>
                           </tr>
                         );
@@ -3424,7 +4084,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     ) : (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: '#71717a' }}>
-                          No categories found. Click &quot;Add New Category&quot; to create one.
+                          No collections found. Click &quot;Add New Collection&quot; to create one.
                         </td>
                       </tr>
                     )}
@@ -3438,71 +4098,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
           {navSection === 'testimonials' && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #e4e4e7',
-              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
                     Patron Testimonials & Reviews
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Manage collector testimonials displayed in &quot;What Our Patrons Say&quot; on the storefront.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={openAddTestimonialModal}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '2px',
+                    border: 'none',
+                    backgroundColor: '#000000',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Plus size={15} /> Add New Testimonial
+                  <Plus size={14} /> Add New Testimonial
                 </button>
               </div>
 
               {/* Testimonials Table */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #e4e4e7', color: '#71717a' }}>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, width: '60px' }}>ORDER</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>PATRON</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>RATING</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>TESTIMONIAL QUOTE</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700 }}>STATUS</th>
-                      <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'right' }}>ACTIONS</th>
+                    <tr style={{
+                      borderTop: '1px solid #e5e7eb',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}>
+                      <th style={{ padding: '12px 14px', width: '60px' }}>ORDER</th>
+                      <th style={{ padding: '12px 14px' }}>PATRON</th>
+                      <th style={{ padding: '12px 14px' }}>RATING</th>
+                      <th style={{ padding: '12px 14px' }}>TESTIMONIAL QUOTE</th>
+                      <th style={{ padding: '12px 14px' }}>STATUS</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {testimonials.length > 0 ? (
                       testimonials.map((t) => (
                         <tr key={t.id} style={{ borderBottom: '1px solid #f4f4f5' }}>
-                          <td style={{ padding: '14px', fontWeight: 800, color: '#71717a' }}>
+                          <td style={{ padding: '12px 14px', fontWeight: 700, color: '#71717a' }}>
                             #{t.display_order}
                           </td>
-                          <td style={{ padding: '14px' }}>
-                            <div style={{ fontWeight: 800, fontSize: '14px', color: '#09090b' }}>
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
                               {t.name}
                             </div>
                             {t.location && (
-                              <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+                              <div style={{ fontSize: '11.5px', color: '#71717a', marginTop: '2px' }}>
                                 {t.location}
                               </div>
                             )}
                           </td>
-                          <td style={{ padding: '14px' }}>
-                            <div style={{ display: 'flex', gap: '2px', color: '#f59e0b' }}>
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ display: 'flex', gap: '2px', color: '#000000' }}>
                               {[...Array(t.rating || 5)].map((_, i) => (
-                                <span key={i} style={{ fontSize: '14px' }}>★</span>
+                                <span key={i} style={{ fontSize: '13px' }}>★</span>
                               ))}
                             </div>
                           </td>
-                          <td style={{ padding: '14px', color: '#334155', fontSize: '13px', maxWidth: '380px', fontStyle: 'italic' }}>
+                          <td style={{ padding: '12px 14px', color: '#52525b', fontSize: '12.5px', maxWidth: '380px', fontStyle: 'italic' }}>
                             &ldquo;{t.quote}&rdquo;
                           </td>
-                          <td style={{ padding: '14px' }}>
+                          <td style={{ padding: '12px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <button
                                 type="button"
@@ -3512,7 +4190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                   width: '36px',
                                   height: '20px',
                                   borderRadius: '999px',
-                                  backgroundColor: t.is_active ? '#16a34a' : '#d4d4d8',
+                                  backgroundColor: t.is_active ? '#000000' : '#e5e7eb',
                                   border: 'none',
                                   position: 'relative',
                                   cursor: 'pointer',
@@ -3538,55 +4216,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 fontSize: '11px',
                                 fontWeight: 700,
                                 textTransform: 'uppercase',
-                                color: t.is_active ? '#166534' : '#71717a',
+                                color: t.is_active ? '#000000' : '#71717a',
                               }}>
                                 {t.is_active ? 'Active' : 'Hidden'}
                               </span>
                             </div>
                           </td>
-                          <td style={{ padding: '14px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                              <button
-                                type="button"
-                                onClick={() => openEditTestimonialModal(t)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 12px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#f4f4f5',
-                                  border: '1px solid #e4e4e7',
-                                  color: '#09090b',
-                                  cursor: 'pointer',
-                                  fontWeight: 600,
-                                  fontSize: '12px',
-                                }}
-                                title="Edit Testimonial"
-                              >
-                                <Edit size={13} /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTestimonial(t.id)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 10px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#fee2e2',
-                                  border: '1px solid #fecaca',
-                                  color: '#dc2626',
-                                  cursor: 'pointer',
-                                  fontWeight: 600,
-                                  fontSize: '12px',
-                                }}
-                                title="Delete Testimonial"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => openEditTestimonialModal(t)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#000000',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTestimonial(t.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#71717a',
+                                fontWeight: 500,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                marginLeft: '12px',
+                                padding: 0,
+                              }}
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -3612,16 +4279,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <PanelBottom size={20} color="#e53637" /> Global Storefront Footer Settings
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    <PanelBottom size={18} color="#000000" /> Global Storefront Footer Settings
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#71717a', margin: '4px 0 0 0' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Customize every section of the storefront footer: value-prop badges, brand description, categories, custom links, newsletter, and copyright.
                   </p>
                 </div>
@@ -3631,14 +4297,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      color: '#166534',
-                      backgroundColor: '#dcfce7',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 700,
+                      color: '#000000',
+                      backgroundColor: '#f4f4f5',
+                      border: '1px solid #e5e7eb',
+                      padding: '7px 12px',
+                      borderRadius: '2px',
+                      fontSize: '12px',
+                      fontWeight: 600,
                     }}>
-                      <CheckCircle2 size={16} /> Saved Successfully!
+                      <CheckCircle2 size={14} color="#000000" /> Saved Successfully!
                     </div>
                   )}
                   <button
@@ -3649,12 +4316,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 20px',
-                      backgroundColor: '#09090b',
+                      padding: '8px 18px',
+                      backgroundColor: '#000000',
                       color: '#ffffff',
                       border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '13.5px',
+                      borderRadius: '2px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: isSavingFooter ? 'not-allowed' : 'pointer',
                       opacity: isSavingFooter ? 0.7 : 1,
@@ -3663,7 +4330,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   >
                     {isSavingFooter ? (
                       <>
-                        <RefreshCw size={15} className="animate-spin" /> Saving...
+                        <RefreshCw size={14} className="animate-spin" /> Saving...
                       </>
                     ) : (
                       <>Save Footer Settings</>
@@ -3675,15 +4342,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* CARD 1: Value-Proposition Badges (Top 3 Badges) */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
-                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   1. Top Highlight Badges (Value Propositions)
                 </h4>
-                <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '20px' }}>
+                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   The 3 cards displayed at the very top of the footer (e.g. Free Insured Delivery, Authenticity Guarantee, 30-Day Returns).
                 </p>
 
@@ -3702,9 +4368,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       <div
                         key={idx}
                         style={{
-                          border: '1px solid #f4f4f5',
+                          border: '1px solid #e5e7eb',
                           backgroundColor: '#fafafa',
-                          borderRadius: '8px',
+                          borderRadius: '2px',
                           padding: '16px',
                           display: 'flex',
                           flexDirection: 'column',
@@ -3712,7 +4378,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 800, color: '#e53637', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Badge #{idx + 1}
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3722,10 +4388,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                               onChange={(e) => handleUpdateBadge(idx, 'icon', e.target.value)}
                               style={{
                                 padding: '4px 8px',
-                                borderRadius: '4px',
-                                border: '1px solid #d4d4d8',
+                                borderRadius: '2px',
+                                border: '1px solid #e5e7eb',
                                 fontSize: '12px',
                                 backgroundColor: '#ffffff',
+                                color: '#000000',
                               }}
                             >
                               <option value="truck">Truck (Delivery)</option>
@@ -3741,7 +4408,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '4px' }}>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
                             Badge Title
                           </label>
                           <input
@@ -3752,16 +4419,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d4d4d8',
-                              fontSize: '13px',
+                              borderRadius: '2px',
+                              border: '1px solid #e5e7eb',
+                              fontSize: '12.5px',
                               boxSizing: 'border-box',
+                              color: '#000000',
                             }}
                           />
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '4px' }}>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
                             Badge Subtitle
                           </label>
                           <input
@@ -3772,10 +4440,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #d4d4d8',
-                              fontSize: '13px',
+                              borderRadius: '2px',
+                              border: '1px solid #e5e7eb',
+                              fontSize: '12.5px',
                               boxSizing: 'border-box',
+                              color: '#000000',
                             }}
                           />
                         </div>
@@ -3788,21 +4457,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* CARD 2: Brand Information & Payment Badges */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
-                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   2. Brand Identity & Payment Logos
                 </h4>
-                <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '20px' }}>
+                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   First column content in the footer: brand title, mission tagline, and payment provider logos.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
                   <div>
-                    <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                       Brand Title (Logo Text)
                     </label>
                     <input
@@ -3812,17 +4480,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       placeholder=""
                       style={{
                         width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #d4d4d8',
-                        fontSize: '14px',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
                         boxSizing: 'border-box',
                         marginBottom: '14px',
+                        color: '#000000',
                       }}
                     />
 
-                    <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#d97706', display: 'block', marginBottom: '6px' }}>
-                      Golden Subtitle / Tagline
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      Subtitle / Tagline
                     </label>
                     <input
                       type="text"
@@ -3831,19 +4500,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       placeholder=""
                       style={{
                         width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #fcd34d',
-                        backgroundColor: '#fffbeb',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#ffffff',
                         fontSize: '13px',
-                        fontWeight: 700,
-                        color: '#92400e',
+                        fontWeight: 600,
+                        color: '#000000',
                         boxSizing: 'border-box',
                         marginBottom: '14px',
                       }}
                     />
 
-                    <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                       Brand Description
                     </label>
                     <textarea
@@ -3853,27 +4522,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       placeholder=""
                       style={{
                         width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #d4d4d8',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
                         fontSize: '13px',
                         boxSizing: 'border-box',
                         fontFamily: 'inherit',
+                        color: '#000000',
                       }}
                     />
                   </div>
 
                   <div style={{
                     backgroundColor: '#fafafa',
-                    border: '1px solid #f4f4f5',
-                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
                     padding: '16px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '12px',
                   }}>
                     <div>
-                      <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
                         📍 Studio Location
                       </label>
                       <input
@@ -3884,16 +4554,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         style={{
                           width: '100%',
                           padding: '8px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #d4d4d8',
-                          fontSize: '13px',
+                          borderRadius: '2px',
+                          border: '1px solid #e5e7eb',
+                          fontSize: '12.5px',
                           boxSizing: 'border-box',
+                          color: '#000000',
                         }}
                       />
                     </div>
 
                     <div>
-                      <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
                         📞 Concierge Phone / WhatsApp
                       </label>
                       <input
@@ -3904,16 +4575,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         style={{
                           width: '100%',
                           padding: '8px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #d4d4d8',
-                          fontSize: '13px',
+                          borderRadius: '2px',
+                          border: '1px solid #e5e7eb',
+                          fontSize: '12.5px',
                           boxSizing: 'border-box',
+                          color: '#000000',
                         }}
                       />
                     </div>
 
                     <div>
-                      <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
                         ✉️ Concierge Email
                       </label>
                       <input
@@ -3924,22 +4596,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         style={{
                           width: '100%',
                           padding: '8px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #d4d4d8',
-                          fontSize: '13px',
+                          borderRadius: '2px',
+                          border: '1px solid #e5e7eb',
+                          fontSize: '12.5px',
                           boxSizing: 'border-box',
+                          color: '#000000',
                         }}
                       />
                     </div>
 
-                    <div style={{ paddingTop: '8px', borderTop: '1px solid #e4e4e7' }}>
+                    <div style={{ paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
                           checked={footerConfig.show_payment_methods}
                           onChange={(e) => setFooterConfig({ ...footerConfig, show_payment_methods: e.target.checked })}
                         />
-                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#09090b' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                           Display Payment Logos Badge
                         </span>
                       </label>
@@ -3953,19 +4626,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* Categories Column Config */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                 }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+                  <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     3. Curated Categories Column
                   </h4>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Second column header and limits for categories loaded from database.
                   </p>
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Column Header Title
                   </label>
                   <input
@@ -3975,16 +4647,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="CURATED CATEGORIES"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13.5px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
                       boxSizing: 'border-box',
                       marginBottom: '16px',
+                      color: '#000000',
                     }}
                   />
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Max Categories to Show
                   </label>
                   <input
@@ -3995,19 +4668,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     onChange={(e) => setFooterConfig({ ...footerConfig, max_categories_to_show: parseInt(e.target.value) || 7 })}
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13.5px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
                       boxSizing: 'border-box',
                       marginBottom: '12px',
+                      color: '#000000',
                     }}
                   />
 
                   <div style={{
-                    padding: '10px 12px',
+                    padding: '8px 12px',
                     backgroundColor: '#f4f4f5',
-                    borderRadius: '6px',
+                    borderRadius: '2px',
                     fontSize: '12px',
                     color: '#71717a',
                   }}>
@@ -4018,13 +4692,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* Custom Column (Curation Desk) */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                    <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
                       4. Custom Column (Curation Desk)
                     </h4>
                     <button
@@ -4034,24 +4707,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
-                        padding: '5px 10px',
-                        backgroundColor: '#f4f4f5',
-                        border: '1px solid #d4d4d8',
-                        borderRadius: '4px',
+                        padding: '4px 10px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
                         fontSize: '12px',
-                        fontWeight: 700,
+                        fontWeight: 600,
                         cursor: 'pointer',
-                        color: '#09090b',
+                        color: '#000000',
                       }}
                     >
                       <Plus size={13} /> Add Link
                     </button>
                   </div>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Third column custom advisory &amp; service links.
                   </p>
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Column Header Title
                   </label>
                   <input
@@ -4061,12 +4734,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="CURATION DESK"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13.5px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
                       boxSizing: 'border-box',
                       marginBottom: '14px',
+                      color: '#000000',
                     }}
                   />
 
@@ -4081,9 +4755,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           style={{
                             flex: 1,
                             padding: '6px 10px',
-                            borderRadius: '4px',
-                            border: '1px solid #d4d4d8',
-                            fontSize: '12.5px',
+                            borderRadius: '2px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '12px',
+                            color: '#000000',
                           }}
                         />
                         <input
@@ -4094,9 +4769,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           style={{
                             width: '110px',
                             padding: '6px 10px',
-                            borderRadius: '4px',
-                            border: '1px solid #d4d4d8',
-                            fontSize: '12.5px',
+                            borderRadius: '2px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '12px',
+                            color: '#000000',
                           }}
                         />
                         <button
@@ -4105,13 +4781,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           style={{
                             border: 'none',
                             background: 'none',
-                            color: '#dc2626',
+                            color: '#71717a',
                             cursor: 'pointer',
                             padding: '4px',
                           }}
                           title="Remove link"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     ))}
@@ -4124,19 +4800,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* Newsletter Column Config */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                 }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+                  <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     5. Newsletter Subscription Column
                   </h4>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Fourth column newsletter pitch and input placeholder.
                   </p>
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Column Header Title
                   </label>
                   <input
@@ -4146,16 +4821,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="NEWSLETTER"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13.5px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
                       boxSizing: 'border-box',
                       marginBottom: '14px',
+                      color: '#000000',
                     }}
                   />
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Newsletter Pitch / Description
                   </label>
                   <textarea
@@ -4165,17 +4841,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="Be the first to know about new arrivals..."
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '12.5px',
                       boxSizing: 'border-box',
                       fontFamily: 'inherit',
                       marginBottom: '14px',
+                      color: '#000000',
                     }}
                   />
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Email Input Placeholder
                   </label>
                   <input
@@ -4185,11 +4862,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="Your email"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '12.5px',
                       boxSizing: 'border-box',
+                      color: '#000000',
                     }}
                   />
                 </div>
@@ -4197,19 +4875,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* Copyright & Direct Contact Info */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                 }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+                  <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     6. Copyright &amp; Advisory Contact
                   </h4>
-                  <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Bottom bar copyright notice and optional contact advisory info.
                   </p>
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Copyright Bar Text
                   </label>
                   <input
@@ -4219,16 +4896,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="Copyright © 2026 All rights reserved | Art Gallery Curations & Studio"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13.5px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
                       boxSizing: 'border-box',
                       marginBottom: '16px',
+                      color: '#000000',
                     }}
                   />
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Direct WhatsApp / Phone Contact
                   </label>
                   <input
@@ -4238,16 +4916,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="+91 98765 43210"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '12.5px',
                       boxSizing: 'border-box',
                       marginBottom: '14px',
+                      color: '#000000',
                     }}
                   />
 
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#3f3f46', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
                     Advisory Inquiries Email
                   </label>
                   <input
@@ -4257,11 +4936,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="curation@artgallery.com"
                     style={{
                       width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #d4d4d8',
-                      fontSize: '13px',
+                      padding: '8px 12px',
+                      borderRadius: '2px',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '12.5px',
                       boxSizing: 'border-box',
+                      color: '#000000',
                     }}
                   />
                 </div>
@@ -4270,17 +4950,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* CARD 7: Real-Time Live Preview */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
-                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                    <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
                       7. Real-Time Storefront Footer Preview
                     </h4>
-                    <p style={{ fontSize: '13px', color: '#71717a', margin: '4px 0 0 0' }}>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
                       This preview updates live as you type, reflecting the exact design and dark theme rendered for collectors.
                     </p>
                   </div>
@@ -4290,11 +4969,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     disabled={isSavingFooter}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: '#e53637',
+                      backgroundColor: '#000000',
                       color: '#ffffff',
                       border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '13px',
+                      borderRadius: '2px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
                     }}
@@ -4304,7 +4983,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div style={{
-                  borderRadius: '8px',
+                  borderRadius: '2px',
                   overflow: 'hidden',
                   border: '1px solid #27272a',
                 }}>
@@ -4325,14 +5004,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     }}>
                       {(footerConfig.feature_badges || []).map((b, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ color: '#e53637' }}>
+                          <div style={{ color: '#ffffff' }}>
                             {b.icon === 'shield' ? <ShieldCheck size={26} /> : b.icon === 'refresh' ? <RefreshCw size={26} /> : <Truck size={26} />}
                           </div>
                           <div>
-                            <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', textTransform: 'uppercase' }}>
+                            <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase' }}>
                               {b.title || `Badge #${idx + 1}`}
                             </div>
-                            <div style={{ fontSize: '12px', color: '#888888', marginTop: '2px' }}>
+                            <div style={{ fontSize: '11.5px', color: '#888888', marginTop: '2px' }}>
                               {b.subtitle || 'Badge subtitle description'}
                             </div>
                           </div>
@@ -4350,7 +5029,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       {/* Col 1: Brand */}
                       <div>
                         <div style={{
-                          fontSize: '26px',
+                          fontSize: '24px',
                           fontFamily: "'Playfair Display', Georgia, serif",
                           fontWeight: 700,
                           color: '#ffffff',
@@ -4364,8 +5043,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         {footerConfig.brand_subtitle && (
                           <div style={{
                             fontSize: '10.5px',
-                            fontWeight: 800,
-                            color: '#f59e0b',
+                            fontWeight: 700,
+                            color: '#e4e4e7',
                             textTransform: 'uppercase',
                             letterSpacing: '0.06em',
                             marginBottom: '10px',
@@ -4402,10 +5081,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                       {/* Col 2: Categories */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', textTransform: 'uppercase', marginBottom: '14px' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
                           {footerConfig.categories_title}
                         </div>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
                           {categories.slice(0, footerConfig.max_categories_to_show).map((cat) => (
                             <li key={cat.id}>{cat.name}</li>
                           ))}
@@ -4414,10 +5093,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                       {/* Col 3: Custom Links */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', textTransform: 'uppercase', marginBottom: '14px' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
                           {footerConfig.custom_column_title}
                         </div>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
                           {(footerConfig.custom_links || []).map((l, idx) => (
                             <li key={idx}>{l.title}</li>
                           ))}
@@ -4426,7 +5105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                       {/* Col 4: Newsletter */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '13px', textTransform: 'uppercase', marginBottom: '14px' }}>
+                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
                           {footerConfig.newsletter_title}
                         </div>
                         <p style={{ fontSize: '12px', color: '#888888', marginBottom: '12px', lineHeight: 1.5 }}>
@@ -4434,7 +5113,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         </p>
                         <div style={{ display: 'flex', borderBottom: '1px solid #333333', paddingBottom: '4px' }}>
                           <span style={{ fontSize: '12px', color: '#666666' }}>{footerConfig.newsletter_placeholder}</span>
-                          <Mail size={15} color="#e53637" style={{ marginLeft: 'auto' }} />
+                          <Mail size={15} color="#ffffff" style={{ marginLeft: 'auto' }} />
                         </div>
                       </div>
                     </div>
@@ -4461,21 +5140,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* Header Bar */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '20px 24px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: '16px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
                 <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Settings size={20} color="#e53637" /> Admin Profile & System Settings
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#000000', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    <Settings size={18} color="#000000" /> Admin Profile & System Settings
                   </h2>
-                  <p style={{ fontSize: '13px', color: '#71717a', margin: '4px 0 0 0' }}>
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Manage administrator profile credentials, reset login password, and review database configurations.
                   </p>
                 </div>
@@ -4488,16 +5166,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     alignItems: 'center',
                     gap: '6px',
                     padding: '8px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid #e4e4e7',
+                    borderRadius: '2px',
+                    border: '1px solid #e5e7eb',
                     backgroundColor: '#ffffff',
-                    color: '#09090b',
-                    fontSize: '13px',
+                    color: '#000000',
+                    fontSize: '12.5px',
                     fontWeight: 600,
                     cursor: 'pointer',
                   }}
                 >
-                  <RefreshCw size={14} /> Refresh Data
+                  <RefreshCw size={13} /> Refresh Data
                 </button>
               </div>
 
@@ -4506,10 +5184,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* CARD 1: Admin Profile Details */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '20px',
@@ -4526,14 +5203,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       width: '56px',
                       height: '56px',
                       borderRadius: '50%',
-                      backgroundColor: '#09090b',
+                      backgroundColor: '#000000',
                       color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '20px',
                       fontWeight: 800,
-                      border: '2px solid #e4e4e7',
+                      border: '1px solid #000000',
                       flexShrink: 0,
                     }}>
                       {adminUser?.full_name
@@ -4543,66 +5220,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
                           {adminUser?.full_name || 'Administrator'}
                         </h3>
                         <span style={{
                           padding: '2px 8px',
-                          borderRadius: '999px',
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          backgroundColor: '#09090b',
+                          borderRadius: '2px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          backgroundColor: '#000000',
                           color: '#ffffff',
                           textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
+                          letterSpacing: '0.05em',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '4px',
                         }}>
-                          <ShieldCheck size={12} color="#e53637" /> {adminUser?.role || 'ADMIN'}
+                          <ShieldCheck size={12} color="#ffffff" /> {adminUser?.role || 'ADMIN'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#71717a', marginTop: '2px' }}>
+                      <div style={{ fontSize: '12.5px', color: '#71717a', marginTop: '2px' }}>
                         {adminUser?.email || 'admin@artweb.com'}
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#a1a1aa', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Calendar size={12} /> Member Since: {adminUser?.created_at ? new Date(adminUser.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'September 2026'}
+                      <div style={{ fontSize: '11px', color: '#a1a1aa', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={11} /> Member Since: {adminUser?.created_at ? new Date(adminUser.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'September 2026'}
                       </div>
                     </div>
                   </div>
 
                   {/* Profile Edit Form */}
                   <div>
-                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '16px' }}>
+                    <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                       Profile Information
                     </h4>
 
                     {profileSuccessMsg && (
                       <div style={{
-                        padding: '10px 14px',
-                        backgroundColor: '#dcfce7',
-                        border: '1px solid #bbf7d0',
-                        color: '#166534',
-                        borderRadius: '6px',
-                        fontSize: '13px',
+                        padding: '9px 12px',
+                        backgroundColor: '#f4f4f5',
+                        border: '1px solid #e5e7eb',
+                        color: '#000000',
+                        borderRadius: '2px',
+                        fontSize: '12px',
                         fontWeight: 600,
                         marginBottom: '16px',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
                       }}>
-                        <CheckCircle2 size={16} /> {profileSuccessMsg}
+                        <CheckCircle2 size={15} color="#000000" /> {profileSuccessMsg}
                       </div>
                     )}
 
                     {profileErrorMsg && (
                       <div style={{
-                        padding: '10px 14px',
-                        backgroundColor: '#fee2e2',
-                        border: '1px solid #fecaca',
-                        color: '#b91c1c',
-                        borderRadius: '6px',
-                        fontSize: '13px',
+                        padding: '9px 12px',
+                        backgroundColor: '#f4f4f5',
+                        border: '1px solid #000000',
+                        color: '#000000',
+                        borderRadius: '2px',
+                        fontSize: '12px',
                         fontWeight: 600,
                         marginBottom: '16px',
                       }}>
@@ -4612,7 +5289,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                     <form onSubmit={handleUpdateAdminProfile}>
                       <div className="form-group" style={{ marginBottom: '14px' }}>
-                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                           Full Name *
                         </label>
                         <input
@@ -4622,11 +5299,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           onChange={(e) => setAdminProfileForm({ ...adminProfileForm, full_name: e.target.value })}
                           required
                           placeholder="e.g. Gallery Curator"
+                          style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                         />
                       </div>
 
                       <div className="form-group" style={{ marginBottom: '14px' }}>
-                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                           Email Address *
                         </label>
                         <input
@@ -4636,11 +5314,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           onChange={(e) => setAdminProfileForm({ ...adminProfileForm, email: e.target.value })}
                           required
                           placeholder="admin@artweb.com"
+                          style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                         />
                       </div>
 
                       <div className="form-group" style={{ marginBottom: '14px' }}>
-                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                           Phone / WhatsApp Contact
                         </label>
                         <input
@@ -4649,12 +5328,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           value={adminProfileForm.phone}
                           onChange={(e) => setAdminProfileForm({ ...adminProfileForm, phone: e.target.value })}
                           placeholder="+91 98765 43210"
+                          style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                         />
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '12px', marginBottom: '20px' }}>
                         <div className="form-group">
-                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                             Street Address
                           </label>
                           <input
@@ -4663,11 +5343,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             value={adminProfileForm.address}
                             onChange={(e) => setAdminProfileForm({ ...adminProfileForm, address: e.target.value })}
                             placeholder="124 Museum Way"
+                            style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                           />
                         </div>
 
                         <div className="form-group">
-                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                             City
                           </label>
                           <input
@@ -4676,6 +5357,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                             value={adminProfileForm.city}
                             onChange={(e) => setAdminProfileForm({ ...adminProfileForm, city: e.target.value })}
                             placeholder="Chennai / Mumbai"
+                            style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                           />
                         </div>
                       </div>
@@ -4683,13 +5365,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       <button
                         type="submit"
                         disabled={isUpdatingProfile}
-                        className="btn btn-primary"
                         style={{
                           width: '100%',
-                          padding: '10px 16px',
-                          fontSize: '13.5px',
+                          padding: '9px 16px',
+                          fontSize: '12.5px',
                           fontWeight: 700,
-                          borderRadius: '6px',
+                          borderRadius: '2px',
+                          backgroundColor: '#000000',
+                          color: '#ffffff',
+                          border: 'none',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -4712,48 +5396,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 {/* CARD 2: Password Reset */}
                 <div style={{
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
                   padding: '24px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '20px',
                 }}>
                   <div>
-                    <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#09090b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <KeyRound size={18} color="#e53637" /> Reset Admin Password
+                    <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#000000', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                      <KeyRound size={17} color="#000000" /> Reset Admin Password
                     </h3>
-                    <p style={{ fontSize: '13px', color: '#71717a', margin: '6px 0 0 0' }}>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '6px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
                       Change your password credentials securely. Enter your current password (if set) and choose a strong new password.
                     </p>
                   </div>
 
                   {passwordSuccessMsg && (
                     <div style={{
-                      padding: '10px 14px',
-                      backgroundColor: '#dcfce7',
-                      border: '1px solid #bbf7d0',
-                      color: '#166534',
-                      borderRadius: '6px',
-                      fontSize: '13px',
+                      padding: '9px 12px',
+                      backgroundColor: '#f4f4f5',
+                      border: '1px solid #e5e7eb',
+                      color: '#000000',
+                      borderRadius: '2px',
+                      fontSize: '12px',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
                     }}>
-                      <CheckCircle2 size={16} /> {passwordSuccessMsg}
+                      <CheckCircle2 size={15} color="#000000" /> {passwordSuccessMsg}
                     </div>
                   )}
 
                   {passwordErrorMsg && (
                     <div style={{
-                      padding: '10px 14px',
-                      backgroundColor: '#fee2e2',
-                      border: '1px solid #fecaca',
-                      color: '#b91c1c',
-                      borderRadius: '6px',
-                      fontSize: '13px',
+                      padding: '9px 12px',
+                      backgroundColor: '#f4f4f5',
+                      border: '1px solid #000000',
+                      color: '#000000',
+                      borderRadius: '2px',
+                      fontSize: '12px',
                       fontWeight: 600,
                     }}>
                       {passwordErrorMsg}
@@ -4762,7 +5445,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                   <form onSubmit={handleResetPassword}>
                     <div className="form-group" style={{ marginBottom: '14px' }}>
-                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                         Current Password (Optional if already authenticated)
                       </label>
                       <input
@@ -4771,11 +5454,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         value={passwordForm.old_password}
                         onChange={(e) => setPasswordForm({ ...passwordForm, old_password: e.target.value })}
                         placeholder="Enter current password"
+                        style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '14px' }}>
-                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                         New Password * (Min 6 characters)
                       </label>
                       <input
@@ -4786,11 +5470,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         required
                         minLength={6}
                         placeholder="Enter new strong password"
+                        style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                      <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>
                         Confirm New Password *
                       </label>
                       <input
@@ -4801,11 +5486,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         required
                         minLength={6}
                         placeholder="Re-enter new password"
+                        style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '12.5px' }}
                       />
                     </div>
 
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#52525b', cursor: 'pointer', userSelect: 'none' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#52525b', cursor: 'pointer', userSelect: 'none' }}>
                         <input
                           type="checkbox"
                           checked={showPassword}
@@ -4820,12 +5506,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       disabled={isChangingPassword}
                       style={{
                         width: '100%',
-                        padding: '10px 16px',
-                        backgroundColor: '#e53637',
+                        padding: '9px 16px',
+                        backgroundColor: '#000000',
                         color: '#ffffff',
                         border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '13.5px',
+                        borderRadius: '2px',
+                        fontSize: '12.5px',
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
@@ -4841,7 +5527,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         </>
                       ) : (
                         <>
-                          <Lock size={14} /> Update Admin Password
+                          <Lock size={13} /> Update Admin Password
                         </>
                       )}
                     </button>
@@ -4852,34 +5538,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* CARD 3: Store & Database Environment Info */}
               <div style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid #e4e4e7',
-                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
                 padding: '24px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               }}>
-                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#09090b', marginBottom: '14px' }}>
+                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '14px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   System & Environment Details
                 </h4>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Database Engine</div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>PostgreSQL (Supabase Cloud)</div>
+                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Database Engine</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>PostgreSQL (Supabase Cloud)</div>
                   </div>
 
-                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Store Currency</div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>INR (₹) Indian Rupee</div>
+                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Store Currency</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>INR (₹) Indian Rupee</div>
                   </div>
 
-                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Standard</div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#16a34a', marginTop: '4px' }}>Bcrypt + JWT Authentication</div>
+                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Standard</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>Bcrypt + JWT Authentication</div>
                   </div>
 
-                  <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Administrator Access</div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>Full Management Permissions</div>
+                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Administrator Access</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>Full Management Permissions</div>
                   </div>
                 </div>
               </div>
@@ -4900,7 +5585,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             bottom: 0,
             width: '100vw',
             height: '100vh',
-            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
             backdropFilter: 'blur(3px)',
             WebkitBackdropFilter: 'blur(3px)',
             zIndex: 99999,
@@ -4919,28 +5604,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               maxHeight: '90vh',
               overflowY: 'auto',
               backgroundColor: '#ffffff',
-              borderRadius: '12px',
+              borderRadius: '2px',
+              border: '1px solid #e5e7eb',
               padding: '28px 32px 30px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
               position: 'relative',
               boxSizing: 'border-box',
             }}
           >
             {/* Modal Header */}
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '21px', fontWeight: 700, color: '#0f172a', margin: '0 0 5px 0', letterSpacing: '-0.01em' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: '0 0 5px 0' }}>
                 {editingPainting ? 'Edit Product' : 'Add Product'}
               </h3>
-              <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
-                Add or update inventory details.
+              <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                Add or update merchandise, pricing, stock levels, and publication status.
               </p>
             </div>
 
             <form onSubmit={handleSavePainting}>
               {/* Image Upload Area — 3 slots */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '10px', display: 'block', letterSpacing: '0.01em' }}>
-                  Product Images <span style={{ color: '#94a3b8', fontWeight: 400 }}>(max 3)</span>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#000000', marginBottom: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Product Images <span style={{ color: '#71717a', fontWeight: 400, textTransform: 'none' }}>(max 3)</span>
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   {/* Slot 1 — Primary (required) */}
@@ -4951,9 +5637,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       <div
                         key={slot}
                         style={{
-                          border: `1px dashed ${idx === 0 ? '#94a3b8' : '#cbd5e1'}`,
-                          borderRadius: '10px',
-                          backgroundColor: '#f8fafc',
+                          border: `1px dashed ${idx === 0 ? '#000000' : '#d4d4d8'}`,
+                          borderRadius: '2px',
+                          backgroundColor: '#fafafa',
                           padding: '12px',
                           display: 'flex',
                           flexDirection: 'column',
@@ -4964,14 +5650,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           justifyContent: imgVal ? 'flex-start' : 'center',
                         }}
                       >
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: idx === 0 ? '#475569' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', alignSelf: 'flex-start' }}>{label}</span>
+                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: idx === 0 ? '#000000' : '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', alignSelf: 'flex-start' }}>{label}</span>
                         {imgVal ? (
                           <>
                             <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
                               <img
                                 src={imgVal}
                                 alt={`Product ${idx + 1}`}
-                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }}
+                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                                 onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=200'; }}
                               />
                               <button
@@ -4979,8 +5665,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 onClick={() => setFormData({ ...formData, [slot]: '' })}
                                 style={{
                                   position: 'absolute', top: '-6px', right: '-6px',
-                                  width: '20px', height: '20px', borderRadius: '50%',
-                                  backgroundColor: '#0f172a', color: '#ffffff', border: 'none',
+                                  width: '20px', height: '20px', borderRadius: '2px',
+                                  backgroundColor: '#000000', color: '#ffffff', border: 'none',
                                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
                                 }}
@@ -4989,7 +5675,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 <X size={11} />
                               </button>
                             </div>
-                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Upload size={11} /> Replace
                               <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingImage}
                                 onChange={slot === 'image_url' ? handleImageFileUpload : (e) => handleImageFileUploadSlot(e, slot as 'image_url_2' | 'image_url_3')} />
@@ -4997,16 +5683,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           </>
                         ) : (
                           <>
-                            <Upload size={22} strokeWidth={1.5} color="#cbd5e1" />
+                            <Upload size={20} strokeWidth={1.5} color="#71717a" />
                             <label style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '5px 12px', backgroundColor: '#ffffff',
-                              border: '1px solid #d4d4d8', borderRadius: '6px',
-                              fontSize: '12px', fontWeight: 600, color: '#0f172a',
+                              border: '1px solid #000000', borderRadius: '2px',
+                              fontSize: '11.5px', fontWeight: 600, color: '#000000',
                               cursor: uploadingImage ? 'not-allowed' : 'pointer',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                             }}>
-                              <Upload size={11} color="#0f172a" />
+                              <Upload size={11} color="#000000" />
                               {uploadingImage ? '...' : 'Upload'}
                               <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingImage}
                                 onChange={slot === 'image_url' ? handleImageFileUpload : (e) => handleImageFileUploadSlot(e, slot as 'image_url_2' | 'image_url_3')} />
@@ -5021,22 +5706,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
               {/* Product Name (Full Width) */}
               <div style={{ marginBottom: '18px' }}>
-                <label style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b', marginBottom: '7px', display: 'block' }}>
-                  Product Name
+                <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Product Name *
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Audio, Golden Horizon"
+                  placeholder="e.g. Cotton Blouse, Silk Saree"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   style={{
                     width: '100%',
-                    height: '42px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '7px',
-                    padding: '0 14px',
-                    fontSize: '14px',
-                    color: '#0f172a',
+                    height: '38px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    padding: '0 12px',
+                    fontSize: '13px',
+                    color: '#000000',
                     outline: 'none',
                     boxSizing: 'border-box',
                     backgroundColor: '#ffffff',
@@ -5045,11 +5730,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 />
               </div>
 
-              {/* Row: Category & Brand Name (matching Image 2) */}
+              {/* Row: Category & Brand Name */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '18px' }}>
                 <div>
-                  <label style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b', marginBottom: '7px', display: 'block' }}>
-                    Category
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Category *
                   </label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <select
@@ -5057,12 +5742,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                       style={{
                         flex: 1,
-                        height: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
-                        padding: '0 12px',
-                        fontSize: '14px',
-                        color: '#0f172a',
+                        height: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
+                        padding: '0 10px',
+                        fontSize: '13px',
+                        color: '#000000',
                         backgroundColor: '#ffffff',
                         cursor: 'pointer',
                         outline: 'none',
@@ -5082,17 +5767,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       type="button"
                       onClick={handleAddCategoryPrompt}
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        minWidth: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
+                        width: '38px',
+                        height: '38px',
+                        minWidth: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
                         backgroundColor: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        color: '#475569',
+                        color: '#000000',
                       }}
                       title="Add New Category"
                     >
@@ -5109,17 +5794,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         }
                       }}
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        minWidth: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
+                        width: '38px',
+                        height: '38px',
+                        minWidth: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
                         backgroundColor: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: formData.category_id ? 'pointer' : 'default',
-                        color: formData.category_id ? '#ef4444' : '#94a3b8',
+                        color: formData.category_id ? '#000000' : '#d4d4d8',
                       }}
                       title="Delete Selected Category"
                     >
@@ -5129,22 +5814,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b', marginBottom: '7px', display: 'block' }}>
-                    Brand Name
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Brand Name *
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., Samsung, Apple, Sony"
+                    placeholder="e.g. SBP, Banarasi"
                     value={formData.artist_name}
                     onChange={(e) => setFormData({ ...formData, artist_name: e.target.value })}
                     style={{
                       width: '100%',
-                      height: '42px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '7px',
-                      padding: '0 14px',
-                      fontSize: '14px',
-                      color: '#0f172a',
+                      height: '38px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
+                      padding: '0 12px',
+                      fontSize: '13px',
+                      color: '#000000',
                       outline: 'none',
                       boxSizing: 'border-box',
                       backgroundColor: '#ffffff',
@@ -5157,7 +5842,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* Row: Store Section & Medium / Material */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '18px' }}>
                 <div>
-                  <label style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b', marginBottom: '7px', display: 'block' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Store Section
                   </label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -5166,12 +5851,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
                       style={{
                         flex: 1,
-                        height: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
-                        padding: '0 12px',
-                        fontSize: '14px',
-                        color: '#0f172a',
+                        height: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
+                        padding: '0 10px',
+                        fontSize: '13px',
+                        color: '#000000',
                         backgroundColor: '#ffffff',
                         cursor: 'pointer',
                         outline: 'none',
@@ -5190,17 +5875,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       type="button"
                       onClick={handleAddSectionPrompt}
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        minWidth: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
+                        width: '38px',
+                        height: '38px',
+                        minWidth: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
                         backgroundColor: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        color: '#475569',
+                        color: '#000000',
                       }}
                       title="Add New Store Section"
                     >
@@ -5217,17 +5902,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         }
                       }}
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        minWidth: '42px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '7px',
+                        width: '38px',
+                        height: '38px',
+                        minWidth: '38px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '2px',
                         backgroundColor: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: formData.section_id ? 'pointer' : 'default',
-                        color: formData.section_id ? '#ef4444' : '#94a3b8',
+                        color: formData.section_id ? '#000000' : '#d4d4d8',
                       }}
                       title="Delete Selected Store Section"
                     >
@@ -5237,22 +5922,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '13.5px', fontWeight: 600, color: '#1e293b', marginBottom: '7px', display: 'block' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Medium / Material
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., Oil on Canvas, Acrylic"
+                    placeholder="e.g. Cotton, Pure Silk"
                     value={formData.medium}
                     onChange={(e) => setFormData({ ...formData, medium: e.target.value })}
                     style={{
                       width: '100%',
-                      height: '42px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '7px',
-                      padding: '0 14px',
-                      fontSize: '14px',
-                      color: '#0f172a',
+                      height: '38px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
+                      padding: '0 12px',
+                      fontSize: '13px',
+                      color: '#000000',
                       outline: 'none',
                       boxSizing: 'border-box',
                       backgroundColor: '#ffffff',
@@ -5273,15 +5958,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     cursor: 'pointer',
                     userSelect: 'none',
                     paddingBottom: '8px',
-                    borderBottom: '1px solid #f1f5f9',
+                    borderBottom: '1px solid #e5e7eb',
                   }}
                 >
-                  <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                    Regular Pricing
+                  <h4 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '14px', fontWeight: 700, color: '#000000', margin: 0 }}>
+                    Regular Pricing & Details
                   </h4>
                   <ChevronDown
                     size={17}
-                    color="#64748b"
+                    color="#000000"
                     style={{
                       transform: isPricingExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.2s ease',
@@ -5293,21 +5978,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   <div style={{ paddingTop: '14px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '14px' }}>
                       <div>
-                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-                          Price (INR ₹) *
+                        <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Price (₹) *
                         </label>
                         <input
                           type="number"
-                          placeholder="e.g., 20000"
+                          placeholder="e.g. 1800"
                           value={formData.price}
                           onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                           style={{
                             width: '100%',
-                            height: '40px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
+                            height: '38px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '2px',
                             padding: '0 12px',
-                            fontSize: '14px',
+                            fontSize: '13px',
+                            color: '#000000',
                             boxSizing: 'border-box',
                           }}
                           required
@@ -5315,42 +6001,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
+                        <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           MRP (Actual Price)
                         </label>
                         <input
                           type="number"
-                          placeholder="e.g., 23000 (Struck-out)"
+                          placeholder="e.g. 2400 (Struck-out)"
                           value={formData.mrp}
                           onChange={(e) => setFormData({ ...formData, mrp: e.target.value })}
                           style={{
                             width: '100%',
-                            height: '40px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
+                            height: '38px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '2px',
                             padding: '0 12px',
-                            fontSize: '14px',
+                            fontSize: '13px',
+                            color: '#000000',
                             boxSizing: 'border-box',
                           }}
                         />
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-                          Dimensions *
+                        <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Dimensions / Size *
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g., 36 x 48 inches"
+                          placeholder="e.g. 38, 40, Free Size"
                           value={formData.dimensions}
                           onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
                           style={{
                             width: '100%',
-                            height: '40px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
+                            height: '38px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '2px',
                             padding: '0 12px',
-                            fontSize: '14px',
+                            fontSize: '13px',
+                            color: '#000000',
                             boxSizing: 'border-box',
                           }}
                           required
@@ -5360,20 +6048,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                     {/* Description */}
                     <div style={{ marginBottom: '14px' }}>
-                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
+                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Description
                       </label>
                       <textarea
                         rows={3}
-                        placeholder="Describe the artwork theme, color harmony, texture, and inspiration..."
+                        placeholder="Describe the merchandise, fabric, color harmony, and fit..."
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         style={{
                           width: '100%',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '2px',
                           padding: '10px 12px',
-                          fontSize: '13.5px',
+                          fontSize: '13px',
+                          color: '#000000',
                           resize: 'vertical',
                           boxSizing: 'border-box',
                           fontFamily: 'inherit',
@@ -5383,48 +6072,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                     {/* Inventory & Status Checkboxes */}
                     <div style={{ display: 'flex', gap: '18px', margin: '12px 0', flexWrap: 'wrap' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer', fontWeight: 600, color: '#000000' }}>
                         <input
                           type="checkbox"
                           checked={formData.status !== 'inactive'}
                           onChange={(e) => setFormData({ ...formData, status: e.target.checked ? 'available' : 'inactive' })}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0b1320' }}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#000000' }}
                         />
                         <span>Active (Available in Store)</span>
                       </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500, color: '#475569' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer', fontWeight: 500, color: '#71717a' }}>
                         <input
                           type="checkbox"
                           checked={formData.is_framed}
                           onChange={(e) => setFormData({ ...formData, is_framed: e.target.checked })}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0b1320' }}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#000000' }}
                         />
-                        <span>Custom Framing Included</span>
+                        <span>Custom Framing / Packaging</span>
                       </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500, color: '#475569' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer', fontWeight: 500, color: '#71717a' }}>
                         <input
                           type="checkbox"
                           checked={formData.featured}
                           onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#0b1320' }}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#000000' }}
                         />
-                        <span>Feature on Hero Slider</span>
+                        <span>Feature on Catalog</span>
                       </label>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Modal Footer (Right-aligned Cancel and Update buttons matching Image 2) */}
+              {/* Modal Footer */}
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'flex-end',
                   gap: '12px',
                   paddingTop: '18px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: '1px solid #e5e7eb',
                   marginTop: '16px',
                 }}
               >
@@ -5432,15 +6121,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   type="button"
                   onClick={() => setShowPaintingModal(false)}
                   style={{
-                    padding: '10px 22px',
+                    padding: '8px 20px',
                     backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    fontSize: '14px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    fontSize: '13px',
                     fontWeight: 600,
-                    color: '#0f172a',
+                    color: '#000000',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
                   }}
                 >
                   Cancel
@@ -5448,19 +6136,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 <button
                   type="submit"
                   style={{
-                    padding: '10px 24px',
-                    backgroundColor: '#0b1320',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: 600,
+                    padding: '8px 22px',
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    fontSize: '13px',
+                    fontWeight: 700,
                     color: '#ffffff',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
-                    transition: 'all 0.15s ease',
                   }}
                 >
-                  {editingPainting ? 'Update Product' : 'Add Product'}
+                  {editingPainting ? 'Update Product' : '+ Add Product'}
                 </button>
               </div>
             </form>
@@ -5473,8 +6159,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(3px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -5483,28 +6169,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
         }}>
           <div style={{
             backgroundColor: '#ffffff',
-            borderRadius: '12px',
+            borderRadius: '2px',
+            border: '1px solid #e5e7eb',
             maxWidth: '680px',
             width: '100%',
             maxHeight: '92vh',
             overflowY: 'auto',
             padding: '28px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
           }}>
             {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e4e4e7', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '14px' }}>
               <div>
-                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#09090b', margin: 0 }}>
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: 0 }}>
                   {editingBanner ? 'Edit Hero Banner Content' : 'Create New Hero Banner'}
                 </h3>
-                <p style={{ fontSize: '12.5px', color: '#71717a', margin: '4px 0 0 0' }}>
+                <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
                   Update the headline, tag badge, description, image, artist and pricing shown on the hero banner.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowBannerModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#71717a', padding: '4px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#000000', padding: '4px' }}
               >
                 <X size={20} />
               </button>
@@ -5514,8 +6201,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             <form onSubmit={handleSaveBanner}>
               {/* Category / Promo Tag */}
               <div className="form-group" style={{ marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
-                  Category / Promo Tag (Red Uppercase Label) *
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Category / Promo Tag *
                 </label>
                 <input
                   type="text"
@@ -5523,36 +6210,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="e.g. ABSTRACT & MODERN CURATION"
                   value={bannerFormData.tag}
                   onChange={(e) => setBannerFormData({ ...bannerFormData, tag: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                   required
                 />
               </div>
 
               {/* Main Headline Title */}
               <div className="form-group" style={{ marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Headline Title *
                 </label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder=""
+                  placeholder="e.g. Modern Expressionism"
                   value={bannerFormData.title}
                   onChange={(e) => setBannerFormData({ ...bannerFormData, title: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                   required
                 />
               </div>
 
               {/* Description Paragraph */}
               <div className="form-group" style={{ marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Description Paragraph *
                 </label>
                 <textarea
                   className="form-control"
                   rows={3}
-                  placeholder="."
+                  placeholder="Banner promotional text..."
                   value={bannerFormData.description}
                   onChange={(e) => setBannerFormData({ ...bannerFormData, description: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                   required
                 />
               </div>
@@ -5560,7 +6250,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               {/* Button Text, Artist, Price */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Button Text *
                   </label>
                   <input
@@ -5569,12 +6259,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="SHOP NOW"
                     value={bannerFormData.button_text}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, button_text: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Artist Name *
                   </label>
                   <input
@@ -5583,12 +6274,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="e.g. MARCUS VANCE"
                     value={bannerFormData.artist_name}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, artist_name: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Display Price (₹ INR) *
                   </label>
                   <input
@@ -5599,16 +6291,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     step="1"
                     value={bannerFormData.price}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, price: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     required
                   />
                 </div>
               </div>
 
-              {/* Color Configuration (Section Background + Circle Backdrop + Text Color) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px', padding: '14px', backgroundColor: '#fbfbfa', borderRadius: '8px', border: '1px solid #e4e4e7' }}>
-                {/* 1. Hero Section Background Color */}
+              {/* Color Configuration */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px', padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Section Background Color *
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -5616,49 +6308,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       type="color"
                       value={bannerFormData.bg_color || '#f3f2ee'}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, bg_color: e.target.value })}
-                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #d4d4d8', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #e5e7eb', borderRadius: '2px', cursor: 'pointer' }}
                     />
                     <input
                       type="text"
                       className="form-control"
-                      style={{ width: '100px', fontSize: '12px' }}
+                      style={{ width: '100px', fontSize: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                       value={bannerFormData.bg_color}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, bg_color: e.target.value })}
                       placeholder="#f3f2ee"
                     />
                   </div>
-                  {/* Presets */}
-                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {[
-                      { color: '#f3f2ee', name: 'Linen' },
-                      { color: '#0073e6', name: 'Cobalt Blue' },
-                      { color: '#700b2b', name: 'Deep Wine' },
-                      { color: '#1c1917', name: 'Dark Charcoal' },
-                      { color: '#ffffff', name: 'Pure White' },
-                      { color: '#faf8f5', name: 'Warm Alabaster' },
-                    ].map((swatch) => (
-                      <button
-                        key={swatch.color}
-                        type="button"
-                        onClick={() => setBannerFormData({ ...bannerFormData, bg_color: swatch.color })}
-                        title={swatch.name}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '4px',
-                          backgroundColor: swatch.color,
-                          border: bannerFormData.bg_color.toLowerCase() === swatch.color.toLowerCase() ? '2px solid #09090b' : '1px solid #d4d4d8',
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      />
-                    ))}
-                  </div>
                 </div>
 
-                {/* 2. Artwork Backdrop Circle Color */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Backdrop Circle Color *
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -5666,49 +6330,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       type="color"
                       value={bannerFormData.circle_color || '#eedcd5'}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, circle_color: e.target.value })}
-                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #d4d4d8', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #e5e7eb', borderRadius: '2px', cursor: 'pointer' }}
                     />
                     <input
                       type="text"
                       className="form-control"
-                      style={{ width: '100px', fontSize: '12px' }}
+                      style={{ width: '100px', fontSize: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                       value={bannerFormData.circle_color}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, circle_color: e.target.value })}
                       placeholder="#eedcd5"
                     />
                   </div>
-                  {/* Presets */}
-                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {[
-                      { color: '#eedcd5', name: 'Blush Sienna' },
-                      { color: '#f55600', name: 'Vibrant Amber' },
-                      { color: '#e2e7ec', name: 'Cobalt Ice' },
-                      { color: '#ece6d8', name: 'Champagne' },
-                      { color: '#e5ece9', name: 'Sage Mist' },
-                      { color: '#dbeafe', name: 'Soft Sky' },
-                    ].map((swatch) => (
-                      <button
-                        key={swatch.color}
-                        type="button"
-                        onClick={() => setBannerFormData({ ...bannerFormData, circle_color: swatch.color })}
-                        title={swatch.name}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          backgroundColor: swatch.color,
-                          border: bannerFormData.circle_color.toLowerCase() === swatch.color.toLowerCase() ? '2px solid #09090b' : '1px solid #d4d4d8',
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      />
-                    ))}
-                  </div>
                 </div>
 
-                {/* 3. Headline & Text Color */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Headline & Text Color *
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -5716,50 +6352,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       type="color"
                       value={bannerFormData.text_color || '#ffffff'}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, text_color: e.target.value })}
-                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #d4d4d8', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ width: '38px', height: '34px', padding: '2px', border: '1px solid #e5e7eb', borderRadius: '2px', cursor: 'pointer' }}
                     />
                     <input
                       type="text"
                       className="form-control"
-                      style={{ width: '100px', fontSize: '12px' }}
+                      style={{ width: '100px', fontSize: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                       value={bannerFormData.text_color}
                       onChange={(e) => setBannerFormData({ ...bannerFormData, text_color: e.target.value })}
                       placeholder="#ffffff"
                     />
-                  </div>
-                  {/* Presets */}
-                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {[
-                      { color: '#ffffff', name: 'Pure White (For Dark BG)' },
-                      { color: '#09090b', name: 'Deep Dark (For Light BG)' },
-                      { color: '#fde047', name: 'Bright Gold' },
-                      { color: '#f5f5f4', name: 'Warm Alabaster' },
-                      { color: '#dbeafe', name: 'Soft Sky' },
-                      { color: '#f43f5e', name: 'Rose Red' },
-                    ].map((swatch) => (
-                      <button
-                        key={swatch.color}
-                        type="button"
-                        onClick={() => setBannerFormData({ ...bannerFormData, text_color: swatch.color })}
-                        title={swatch.name}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '4px',
-                          backgroundColor: swatch.color,
-                          border: (bannerFormData.text_color || '#ffffff').toLowerCase() === swatch.color.toLowerCase() ? '2px solid #09090b' : '1px solid #d4d4d8',
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      />
-                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Artwork Image URL and File Upload */}
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Artwork Image URL or File Upload *
                 </label>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -5769,22 +6378,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="https://images.unsplash.com/..."
                     value={bannerFormData.image_url}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, image_url: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     required
                   />
                   <label style={{
-                    padding: '10px 14px',
-                    borderRadius: '4px',
-                    border: '1px solid #e4e4e7',
-                    backgroundColor: '#f4f4f5',
+                    padding: '8px 14px',
+                    borderRadius: '2px',
+                    border: '1px solid #000000',
+                    backgroundColor: '#ffffff',
+                    color: '#000000',
                     cursor: 'pointer',
                     fontSize: '12px',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     whiteSpace: 'nowrap',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                   }}>
-                    <Upload size={14} /> {uploadingBannerImage ? 'Uploading...' : 'Browse'}
+                    <Upload size={13} /> {uploadingBannerImage ? 'Uploading...' : 'Browse'}
                     <input
                       type="file"
                       accept="image/*"
@@ -5798,9 +6409,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <img
                       src={bannerFormData.image_url}
                       alt="Preview"
-                      style={{ width: '50px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e4e4e7' }}
+                      style={{ width: '50px', height: '60px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     />
-                    <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
+                    <span style={{ fontSize: '12px', color: '#000000', fontWeight: 600 }}>
                       ✓ Image preview loaded
                     </span>
                   </div>
@@ -5808,23 +6419,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               </div>
 
               {/* Order & Active Status */}
-              <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginBottom: '24px', padding: '12px', backgroundColor: '#f4f4f5', borderRadius: '6px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginBottom: '24px', padding: '12px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={bannerFormData.is_active}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, is_active: e.target.checked })}
+                    style={{ accentColor: '#000000' }}
                   />
-                  <span style={{ fontWeight: 700, color: bannerFormData.is_active ? '#166534' : '#71717a' }}>
+                  <span style={{ fontWeight: 700, color: '#000000' }}>
                     Active (Show in Homepage Hero Slider)
                   </span>
                 </label>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                  <label style={{ fontWeight: 600 }}>Display Order:</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
+                  <label style={{ fontWeight: 600, color: '#000000' }}>Display Order:</label>
                   <input
                     type="number"
-                    style={{ width: '60px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #d4d4d8' }}
+                    style={{ width: '60px', padding: '4px 8px', borderRadius: '2px', border: '1px solid #e5e7eb' }}
                     value={bannerFormData.display_order}
                     onChange={(e) => setBannerFormData({ ...bannerFormData, display_order: parseInt(e.target.value) || 0 })}
                   />
@@ -5832,19 +6444,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e4e4e7', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
                 <button
                   type="button"
                   onClick={() => setShowBannerModal(false)}
-                  className="btn btn-secondary"
-                  style={{ padding: '10px 20px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    color: '#000000',
+                    cursor: 'pointer',
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 24px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                  }}
                 >
                   Save Hero Banner
                 </button>
@@ -5856,11 +6484,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
       {/* Add / Edit Store Section Modal */}
       {showSectionModal && (
-        <div className="modal-overlay" onClick={() => setShowSectionModal(false)}>
+        <div
+          onClick={() => setShowSectionModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
           <div
-            className="modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '520px', padding: '32px', backgroundColor: '#ffffff', borderRadius: '8px' }}
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              padding: '30px',
+              backgroundColor: '#ffffff',
+              borderRadius: '2px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+            }}
           >
             <button
               onClick={() => setShowSectionModal(false)}
@@ -5870,23 +6519,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 right: '20px',
                 background: 'none',
                 border: 'none',
-                color: '#71717a',
+                color: '#000000',
                 cursor: 'pointer',
               }}
             >
               <X size={20} />
             </button>
 
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', marginBottom: '8px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: '0 0 6px 0' }}>
               {editingSection ? 'Edit Store Section' : 'Create New Store Section'}
             </h3>
-            <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
+            <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: '0 0 24px 0' }}>
               Configure section name and display position. Products assigned to this section will appear in its dedicated section block on the storefront.
             </p>
 
             <form onSubmit={handleSaveSection}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Section Name *
                 </label>
                 <input
@@ -5895,12 +6544,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="E.g., Best Sellers, New Arrivals, Hot Sales, Curators Choice"
                   value={sectionFormData.name}
                   onChange={(e) => setSectionFormData({ ...sectionFormData, name: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                   required
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Description (Optional subtitle on storefront)
                 </label>
                 <textarea
@@ -5909,12 +6559,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="Brief description of the artworks curated in this section..."
                   value={sectionFormData.description}
                   onChange={(e) => setSectionFormData({ ...sectionFormData, description: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                 />
               </div>
 
               {/* Section Cover Image with Upload & Live Preview */}
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Section Cover Image (For Storefront Themes Cards)
                 </label>
 
@@ -5924,11 +6575,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     width: '80px',
                     height: '60px',
                     minWidth: '80px',
-                    borderRadius: '6px',
+                    borderRadius: '2px',
                     overflow: 'hidden',
-                    backgroundColor: '#f1f5f9',
-                    border: '2px solid #e4e4e7',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    backgroundColor: '#fafafa',
+                    border: '1px solid #e5e7eb',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -5940,7 +6590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <Layers size={22} color="#94a3b8" />
+                      <Layers size={22} color="#71717a" />
                     )}
                   </div>
 
@@ -5950,16 +6600,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
-                        padding: '8px 14px',
-                        backgroundColor: '#f4f4f5',
-                        border: '1px solid #d4d4d8',
-                        borderRadius: '6px',
+                        padding: '7px 14px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #000000',
+                        borderRadius: '2px',
                         fontSize: '12px',
                         fontWeight: 600,
                         cursor: 'pointer',
-                        color: '#09090b',
+                        color: '#000000',
                       }}>
-                        <Upload size={14} />
+                        <Upload size={13} />
                         {uploadingSectionImage ? 'Uploading Image...' : 'Upload Image File'}
                         <input
                           type="file"
@@ -5974,11 +6624,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           type="button"
                           onClick={() => setSectionFormData({ ...sectionFormData, image_url: '' })}
                           style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#fee2e2',
-                            border: '1px solid #fecaca',
-                            color: '#dc2626',
-                            borderRadius: '6px',
+                            padding: '7px 12px',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e5e7eb',
+                            color: '#71717a',
+                            borderRadius: '2px',
                             fontSize: '12px',
                             fontWeight: 600,
                             cursor: 'pointer',
@@ -6000,12 +6650,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="Or paste external image URL: https://images.unsplash.com/..."
                   value={sectionFormData.image_url}
                   onChange={(e) => setSectionFormData({ ...sectionFormData, image_url: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Display Order
                   </label>
                   <input
@@ -6014,6 +6665,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     value={sectionFormData.display_order}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, display_order: parseInt(e.target.value) || 1 })}
                     min={1}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                   />
                   <span style={{ fontSize: '11px', color: '#71717a', marginTop: '4px', display: 'block' }}>
                     1 is displayed first at the top
@@ -6021,32 +6673,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginTop: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer', marginTop: '16px' }}>
                     <input
                       type="checkbox"
                       checked={sectionFormData.is_active}
                       onChange={(e) => setSectionFormData({ ...sectionFormData, is_active: e.target.checked })}
+                      style={{ accentColor: '#000000' }}
                     />
-                    <span style={{ fontWeight: 700, color: sectionFormData.is_active ? '#166534' : '#71717a' }}>
+                    <span style={{ fontWeight: 700, color: '#000000' }}>
                       {sectionFormData.is_active ? 'Active (Visible on Store)' : 'Hidden'}
                     </span>
                   </label>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e4e4e7', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
                 <button
                   type="button"
                   onClick={() => setShowSectionModal(false)}
-                  className="btn btn-secondary"
-                  style={{ padding: '10px 20px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    color: '#000000',
+                    cursor: 'pointer',
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 24px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                  }}
                 >
                   {editingSection ? 'Save Changes' : 'Create Section'}
                 </button>
@@ -6058,11 +6727,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
       {/* Add / Edit Category Modal */}
       {showCategoryModal && (
-        <div className="modal-overlay" onClick={() => setShowCategoryModal(false)}>
+        <div
+          onClick={() => setShowCategoryModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
           <div
-            className="modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '520px', padding: '32px', backgroundColor: '#ffffff', borderRadius: '8px' }}
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              padding: '30px',
+              backgroundColor: '#ffffff',
+              borderRadius: '2px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+            }}
           >
             <button
               onClick={() => setShowCategoryModal(false)}
@@ -6072,24 +6762,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 right: '20px',
                 background: 'none',
                 border: 'none',
-                color: '#71717a',
+                color: '#000000',
                 cursor: 'pointer',
               }}
             >
               <X size={20} />
             </button>
 
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', marginBottom: '8px' }}>
-              {editingCategory ? 'Edit Category' : 'Create New Category'}
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: '0 0 6px 0' }}>
+              {editingCategory ? 'Edit Collection' : 'Create New Collection'}
             </h3>
-            <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
-              Configure category details and upload a cover thumbnail displayed in the storefront &quot;Shop by Category&quot; circular badges.
+            <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: '0 0 24px 0' }}>
+              Configure collection details and upload a cover thumbnail displayed in the storefront &quot;Collection&quot; circular badges.
             </p>
 
             <form onSubmit={handleSaveCategory}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
-                  Category Name *
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Collection Name *
                 </label>
                 <input
                   type="text"
@@ -6097,13 +6787,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="E.g., Oil Painting, Abstract & Modern, Acrylics"
                   value={categoryFormData.name}
                   onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                   required
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
-                  Category Slug (Optional, auto-generated)
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Collection Slug (Optional, auto-generated)
                 </label>
                 <input
                   type="text"
@@ -6111,13 +6802,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="e.g. oil-painting (optional)"
                   value={categoryFormData.slug}
                   onChange={(e) => setCategoryFormData({ ...categoryFormData, slug: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                 />
               </div>
 
               {/* Category Cover Image with Live Preview */}
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
-                  Category Cover Image (For Storefront Circle)
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Collection Cover Image (For Storefront Circle)
                 </label>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
@@ -6128,9 +6820,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     minWidth: '64px',
                     borderRadius: '50%',
                     overflow: 'hidden',
-                    backgroundColor: '#f1f5f9',
-                    border: '2px solid #e4e4e7',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    backgroundColor: '#fafafa',
+                    border: '1px solid #e5e7eb',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -6142,7 +6833,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <span style={{ fontSize: '20px', fontWeight: 800, color: '#94a3b8' }}>
+                      <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '18px', fontWeight: 700, color: '#000000' }}>
                         {categoryFormData.name ? categoryFormData.name.charAt(0).toUpperCase() : '?'}
                       </span>
                     )}
@@ -6153,16 +6844,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '8px 14px',
-                      backgroundColor: '#f4f4f5',
-                      border: '1px solid #d4d4d8',
-                      borderRadius: '6px',
+                      padding: '7px 14px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #000000',
+                      borderRadius: '2px',
                       fontSize: '12px',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      color: '#09090b',
+                      color: '#000000',
                     }}>
-                      <Upload size={14} />
+                      <Upload size={13} />
                       {uploadingCategoryImage ? 'Uploading Image...' : 'Upload Image File'}
                       <input
                         type="file"
@@ -6184,37 +6875,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="Or paste external image URL: https://images.unsplash.com/..."
                   value={categoryFormData.image_url}
                   onChange={(e) => setCategoryFormData({ ...categoryFormData, image_url: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Description (Optional)
                 </label>
                 <textarea
                   className="form-control"
                   rows={2}
-                  placeholder="Brief description of this artwork category..."
+                  placeholder="Brief description of this artwork collection..."
                   value={categoryFormData.description}
                   onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e4e4e7', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
                 <button
                   type="button"
                   onClick={() => setShowCategoryModal(false)}
-                  className="btn btn-secondary"
-                  style={{ padding: '10px 20px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    color: '#000000',
+                    cursor: 'pointer',
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 24px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                  }}
                 >
-                  {editingCategory ? 'Save Changes' : 'Create Category'}
+                  {editingCategory ? 'Save Changes' : 'Create Collection'}
                 </button>
               </div>
             </form>
@@ -6224,11 +6933,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
       {/* Add / Edit Testimonial Modal */}
       {showTestimonialModal && (
-        <div className="modal-overlay" onClick={() => setShowTestimonialModal(false)}>
+        <div
+          onClick={() => setShowTestimonialModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
           <div
-            className="modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '520px', padding: '32px', backgroundColor: '#ffffff', borderRadius: '8px' }}
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              padding: '30px',
+              backgroundColor: '#ffffff',
+              borderRadius: '2px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+            }}
           >
             <button
               onClick={() => setShowTestimonialModal(false)}
@@ -6238,24 +6968,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 right: '20px',
                 background: 'none',
                 border: 'none',
-                color: '#71717a',
+                color: '#000000',
                 cursor: 'pointer',
               }}
             >
               <X size={20} />
             </button>
 
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#09090b', marginBottom: '8px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: '0 0 6px 0' }}>
               {editingTestimonial ? 'Edit Patron Testimonial' : 'Add New Patron Testimonial'}
             </h3>
-            <p style={{ fontSize: '13px', color: '#71717a', marginBottom: '24px' }}>
+            <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: '0 0 24px 0' }}>
               Add authentic reviews and patron quotes to feature in the &quot;What Our Patrons Say&quot; showcase.
             </p>
 
             <form onSubmit={handleSaveTestimonial}>
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Patron Name *
                   </label>
                   <input
@@ -6264,12 +6994,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="e.g., Meera Iyer, Rhea Kapoor"
                     value={testimonialFormData.name}
                     onChange={(e) => setTestimonialFormData({ ...testimonialFormData, name: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     City / Location
                   </label>
                   <input
@@ -6278,20 +7009,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     placeholder="e.g., Chennai, Mumbai"
                     value={testimonialFormData.location}
                     onChange={(e) => setTestimonialFormData({ ...testimonialFormData, location: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '38px', fontSize: '13px' }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Rating (Stars)
                   </label>
                   <select
                     className="form-control"
                     value={testimonialFormData.rating}
                     onChange={(e) => setTestimonialFormData({ ...testimonialFormData, rating: parseInt(e.target.value) || 5 })}
-                    style={{ height: '42px' }}
+                    style={{ height: '38px', borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                   >
                     <option value={5}>★★★★★ (5 Stars - Exceptional)</option>
                     <option value={4}>★★★★☆ (4 Stars - Great)</option>
@@ -6300,7 +7032,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Display Order
                   </label>
                   <input
@@ -6309,13 +7041,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     value={testimonialFormData.display_order}
                     onChange={(e) => setTestimonialFormData({ ...testimonialFormData, display_order: parseInt(e.target.value) || 1 })}
                     min={1}
-                    style={{ height: '42px' }}
+                    style={{ height: '38px', borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                   />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Testimonial Quote *
                 </label>
                 <textarea
@@ -6324,38 +7056,312 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   placeholder="e.g., The custom silk artwork sat perfectly. The finish and textures were thoroughly taken seriously..."
                   value={testimonialFormData.quote}
                   onChange={(e) => setTestimonialFormData({ ...testimonialFormData, quote: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                   required
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={testimonialFormData.is_active}
                     onChange={(e) => setTestimonialFormData({ ...testimonialFormData, is_active: e.target.checked })}
+                    style={{ accentColor: '#000000' }}
                   />
-                  <span style={{ fontWeight: 700, color: testimonialFormData.is_active ? '#166534' : '#71717a' }}>
+                  <span style={{ fontWeight: 700, color: '#000000' }}>
                     {testimonialFormData.is_active ? 'Active (Visible on Storefront)' : 'Hidden'}
                   </span>
                 </label>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e4e4e7', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
                 <button
                   type="button"
                   onClick={() => setShowTestimonialModal(false)}
-                  className="btn btn-secondary"
-                  style={{ padding: '10px 20px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    color: '#000000',
+                    cursor: 'pointer',
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 24px', fontSize: '13px' }}
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                  }}
                 >
                   {editingTestimonial ? 'Save Changes' : 'Create Testimonial'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Add / Edit Showcase Item Modal */}
+      {showShowcaseModal && (
+        <div
+          onClick={() => setShowShowcaseModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '540px',
+              width: '100%',
+              padding: '30px',
+              backgroundColor: '#ffffff',
+              borderRadius: '2px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <button
+              onClick={() => setShowShowcaseModal(false)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'none',
+                border: 'none',
+                color: '#000000',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', fontWeight: 700, color: '#000000', margin: '0 0 6px 0' }}>
+              {editingShowcase ? 'Edit Showcase Photo' : 'Add Showcase Photo'}
+            </h3>
+            <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '13px', color: '#6b7280', margin: '0 0 20px 0' }}>
+              Upload a promotional image to display in the marquee showcase track next to the countdown timer.
+            </p>
+
+            <form onSubmit={handleSaveShowcase}>
+              {/* Image Upload & Preview */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                  Showcase Photo *
+                </label>
+                
+                {showcaseFormData.image_url && (
+                  <div style={{
+                    width: '100%',
+                    height: '160px',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    marginBottom: '10px',
+                    border: '1px solid #e5e7eb',
+                    backgroundColor: '#1f2937',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <img
+                      src={showcaseFormData.image_url}
+                      alt="Showcase preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '2px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: '#111827',
+                      cursor: uploadingShowcaseImage ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Upload size={14} />
+                    {uploadingShowcaseImage ? 'Uploading Image...' : 'Choose File from Computer'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleShowcaseImageUpload}
+                      disabled={uploadingShowcaseImage}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280' }}>Or paste image web URL directly:</span>
+                  <input
+                    type="url"
+                    className="form-control"
+                    placeholder="https://images.unsplash.com/..."
+                    value={showcaseFormData.image_url}
+                    onChange={(e) => setShowcaseFormData({ ...showcaseFormData, image_url: e.target.value })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '36px', fontSize: '12.5px', width: '100%', marginTop: '4px' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Tag / Badge */}
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                  Badge / Tag (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g., FEATURED, TRENDING, NEW SEASON, CURATED"
+                  value={showcaseFormData.tag}
+                  onChange={(e) => setShowcaseFormData({ ...showcaseFormData, tag: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '36px', fontSize: '13px', width: '100%' }}
+                />
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {['FEATURED', 'TRENDING', 'NEW SEASON', 'LIMITED', 'CURATED'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setShowcaseFormData({ ...showcaseFormData, tag: t })}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '10.5px',
+                        fontWeight: 600,
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        backgroundColor: showcaseFormData.tag === t ? '#1b3b2b' : '#f9fafb',
+                        color: showcaseFormData.tag === t ? '#ffffff' : '#374151',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Title & Description */}
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                  Title / Headline (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g., Spring Summer Atelier Collection"
+                  value={showcaseFormData.title}
+                  onChange={(e) => setShowcaseFormData({ ...showcaseFormData, title: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '36px', fontSize: '13px', width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                  Short Subtitle / Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g., Bespoke handcrafted silk creations"
+                  value={showcaseFormData.description}
+                  onChange={(e) => setShowcaseFormData({ ...showcaseFormData, description: e.target.value })}
+                  style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '36px', fontSize: '13px', width: '100%' }}
+                />
+              </div>
+
+              {/* Display Order & Active */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', alignItems: 'center' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control"
+                    value={showcaseFormData.display_order}
+                    onChange={(e) => setShowcaseFormData({ ...showcaseFormData, display_order: parseInt(e.target.value) || 1 })}
+                    style={{ borderRadius: '2px', border: '1px solid #e5e7eb', height: '36px', fontSize: '13px', width: '100%' }}
+                  />
+                </div>
+
+                <div style={{ paddingTop: '18px' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#000000' }}>
+                    <input
+                      type="checkbox"
+                      checked={showcaseFormData.is_active}
+                      onChange={(e) => setShowcaseFormData({ ...showcaseFormData, is_active: e.target.checked })}
+                      style={{ width: '16px', height: '16px', accentColor: '#000000' }}
+                    />
+                    Active on Storefront
+                  </label>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowShowcaseModal(false)}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '2px',
+                    color: '#000000',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingShowcaseImage}
+                  style={{
+                    padding: '8px 24px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#000000',
+                    border: '1px solid #000000',
+                    borderRadius: '2px',
+                    color: '#ffffff',
+                    cursor: uploadingShowcaseImage ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {editingShowcase ? 'Save Changes' : 'Add to Showcase'}
                 </button>
               </div>
             </form>

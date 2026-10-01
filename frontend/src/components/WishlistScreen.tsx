@@ -27,11 +27,11 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
   const navigate = useNavigate();
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
 
-  const formatPrice = (price?: number | null, currency: string = 'INR') => {
+  const formatPrice = (price?: number | null, _currency?: string) => {
     if (price === undefined || price === null) return '';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: currency || 'INR',
+      currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
   };
@@ -97,7 +97,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
                 fontWeight: 800,
                 color: '#09090b',
                 margin: 0,
-                fontFamily: "'Nunito Sans', sans-serif"
+                fontFamily: "'Roboto Condensed', sans-serif"
               }}>
                 My Saved Wishlist
               </h1>
@@ -376,7 +376,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
                     {/* Price Line */}
                     <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                        <span style={{ fontSize: '18px', fontWeight: 900, color: '#09090b', fontFamily: "'Nunito Sans', sans-serif" }}>
+                        <span style={{ fontSize: '18px', fontWeight: 900, color: '#09090b', fontFamily: "'Roboto Condensed', sans-serif" }}>
                           {formatPrice(painting.price, painting.currency)}
                         </span>
                         {hasDiscount && (

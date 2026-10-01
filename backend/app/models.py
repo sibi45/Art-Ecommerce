@@ -175,3 +175,18 @@ class FooterConfig(Base):
     social_links = Column(JSON, default=dict, nullable=True)
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ShowcaseItem(Base):
+    __tablename__ = "showcase_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    image_url = Column(Text, nullable=False)
+    title = Column(String(200), nullable=True)
+    tag = Column(String(100), nullable=True, default="FEATURED")
+    description = Column(Text, nullable=True)
+    display_order = Column(Integer, default=1, nullable=False)
+    is_active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

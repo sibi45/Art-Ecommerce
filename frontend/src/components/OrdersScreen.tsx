@@ -202,7 +202,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#09090b', margin: '0 0 6px 0', fontFamily: "'Nunito Sans', sans-serif" }}>
+              <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#09090b', margin: '0 0 6px 0', fontFamily: "'Roboto Condensed', sans-serif" }}>
                 My Collector Orders & Inquiries
               </h1>
               <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
@@ -647,7 +647,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
                         <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
                           Order Total
                         </div>
-                        <div style={{ fontSize: '22px', fontWeight: 900, color: '#09090b', fontFamily: "'Nunito Sans', sans-serif" }}>
+                        <div style={{ fontSize: '22px', fontWeight: 900, color: '#09090b', fontFamily: "'Roboto Condensed', sans-serif" }}>
                           {formatPrice(inq.quoted_price)}
                         </div>
                       </div>

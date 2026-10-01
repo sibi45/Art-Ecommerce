@@ -15,10 +15,10 @@ export const PaintingDetailModal: React.FC<PaintingDetailModalProps> = ({
 }) => {
   if (!painting) return null;
 
-  const formatPrice = (price: number, currency: string = 'INR') => {
+  const formatPrice = (price: number, _currency?: string) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: currency || 'INR',
+      currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
   };

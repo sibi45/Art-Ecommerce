@@ -6,6 +6,7 @@ import {
   AdminStats,
   User,
   Banner,
+  ShowcaseItem,
   ProductSection,
   Testimonial,
   FooterConfig
@@ -268,6 +269,41 @@ class ApiClient {
 
   async deleteBanner(id: number): Promise<void> {
     return this.request<void>(`/admin/banners/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ----------------- Showcase Items -----------------
+  async getShowcaseItems(): Promise<ShowcaseItem[]> {
+    return this.request<ShowcaseItem[]>('/showcases');
+  }
+
+  async getAllShowcaseItemsAdmin(): Promise<ShowcaseItem[]> {
+    return this.request<ShowcaseItem[]>('/admin/showcases');
+  }
+
+  async createShowcaseItem(data: Partial<ShowcaseItem>): Promise<ShowcaseItem> {
+    return this.request<ShowcaseItem>('/admin/showcases', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateShowcaseItem(id: number, data: Partial<ShowcaseItem>): Promise<ShowcaseItem> {
+    return this.request<ShowcaseItem>(`/admin/showcases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleShowcaseItemActive(id: number): Promise<ShowcaseItem> {
+    return this.request<ShowcaseItem>(`/admin/showcases/${id}/toggle-active`, {
+      method: 'PATCH',
+    });
+  }
+
+  async deleteShowcaseItem(id: number): Promise<void> {
+    return this.request<void>(`/admin/showcases/${id}`, {
       method: 'DELETE',
     });
   }
