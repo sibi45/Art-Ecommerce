@@ -4,7 +4,10 @@ import shutil
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 from app.database import get_db
 from app.models import FooterConfig, User
@@ -142,7 +145,7 @@ def upload_store_logo(
         shutil.copyfileobj(file.file, buffer)
 
     # Automatically trim excess whitespace borders for raster formats
-    if ext in [".jpg", ".jpeg", ".png", ".webp"]:
+    if Image is not None and ext in [".jpg", ".jpeg", ".png", ".webp"]:
         try:
             with Image.open(file_path) as im:
                 if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
@@ -179,6 +182,9 @@ def trim_existing_logo(
     config = get_or_create_footer_config(db)
     if not config.brand_logo_url:
         raise HTTPException(status_code=400, detail="No logo currently configured to trim")
+
+    if Image is None:
+        raise HTTPException(status_code=500, detail="Image processing library (Pillow) is not available on server")
 
     url_path = config.brand_logo_url
     if "/uploads/" in url_path:
