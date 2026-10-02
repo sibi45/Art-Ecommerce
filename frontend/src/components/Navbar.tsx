@@ -157,16 +157,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 src={footerConfig.brand_logo_url}
                 alt={footerConfig.brand_name || 'Store Logo'}
                 style={{
-                  height: 'auto',
-                  maxHeight: '58px',
-                  width: (footerConfig.brand_name || footerConfig.brand_subtitle)
-                    ? 'auto'
-                    : `${footerConfig.social_links?.logo_width || 240}px`,
-                  maxWidth: (footerConfig.brand_name || footerConfig.brand_subtitle)
-                    ? `${Math.max(160, Number(footerConfig.social_links?.logo_width) || 200)}px`
-                    : `${Math.max(280, Number(footerConfig.social_links?.logo_width) || 280)}px`,
+                  height: `${Number(footerConfig?.social_links?.logo_height) || 58}px`,
+                  maxHeight: '75px',
+                  width: footerConfig?.social_links?.logo_width
+                    ? `${footerConfig.social_links.logo_width}px`
+                    : 'auto',
+                  maxWidth: (footerConfig?.brand_name || footerConfig?.brand_subtitle)
+                    ? `${Math.max(220, Number(footerConfig?.social_links?.logo_width) || 280)}px`
+                    : `${Math.max(300, Number(footerConfig?.social_links?.logo_width) || 360)}px`,
                   objectFit: 'contain',
-                  borderRadius: '4px',
+                  borderRadius: '2px',
                   display: 'block',
                   flexShrink: 0,
                 }}

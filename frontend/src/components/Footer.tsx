@@ -100,11 +100,11 @@ export const Footer: React.FC<FooterProps> = ({
                 src={footerConfig.brand_logo_url}
                 alt={brandName || 'Brand Logo'}
                 style={{
-                  height: '36px',
-                  maxHeight: '40px',
-                  maxWidth: '120px',
+                  height: '42px',
+                  maxHeight: '48px',
+                  maxWidth: '220px',
                   objectFit: 'contain',
-                  borderRadius: '6px',
+                  borderRadius: '2px',
                   display: 'block',
                   flexShrink: 0,
                 }}

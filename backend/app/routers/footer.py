@@ -1,6 +1,10 @@
+import os
+import uuid
+import shutil
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
+from PIL import Image
 
 from app.database import get_db
 from app.models import FooterConfig, User
@@ -117,3 +121,89 @@ def update_footer_config(
     db.commit()
     db.refresh(config)
     return config
+
+
+@router.post("/admin/footer/upload-logo")
+def upload_store_logo(
+    file: UploadFile = File(...),
+    admin: User = Depends(get_current_admin)
+):
+    """Upload store logo and automatically trim excess whitespace borders."""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".svg", ".gif"]:
+        raise HTTPException(status_code=400, detail="Only image files (.png, .jpg, .jpeg, .webp, .svg, .gif) are allowed")
+
+    upload_dir = os.path.join(os.getcwd(), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_name = f"logo_{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(upload_dir, file_name)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Automatically trim excess whitespace borders for raster formats
+    if ext in [".jpg", ".jpeg", ".png", ".webp"]:
+        try:
+            with Image.open(file_path) as im:
+                if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
+                    rgba = im.convert('RGBA')
+                    alpha = rgba.split()[3]
+                    bbox = alpha.getbbox()
+                else:
+                    gray = im.convert('L')
+                    non_bg = [(x, y) for y in range(im.height) for x in range(im.width) if gray.getpixel((x, y)) < 238]
+                    if non_bg:
+                        x1 = max(0, min(x for x, y in non_bg) - 10)
+                        y1 = max(0, min(y for x, y in non_bg) - 8)
+                        x2 = min(im.width, max(x for x, y in non_bg) + 10)
+                        y2 = min(im.height, max(y for x, y in non_bg) + 8)
+                        bbox = (x1, y1, x2, y2)
+                    else:
+                        bbox = None
+
+                if bbox:
+                    cropped = im.crop(bbox)
+                    cropped.save(file_path, quality=95)
+        except Exception:
+            pass
+
+    return {"url": f"/uploads/{file_name}", "filename": file_name}
+
+
+@router.post("/admin/footer/trim-logo")
+def trim_existing_logo(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Trim excess whitespace borders from the current store logo."""
+    config = get_or_create_footer_config(db)
+    if not config.brand_logo_url:
+        raise HTTPException(status_code=400, detail="No logo currently configured to trim")
+
+    url_path = config.brand_logo_url
+    if "/uploads/" in url_path:
+        filename = url_path.split("/uploads/")[-1]
+        file_path = os.path.join(os.getcwd(), "uploads", filename)
+        if os.path.exists(file_path):
+            try:
+                with Image.open(file_path) as im:
+                    if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
+                        rgba = im.convert('RGBA')
+                        bbox = rgba.split()[3].getbbox()
+                    else:
+                        gray = im.convert('L')
+                        non_bg = [(x, y) for y in range(im.height) for x in range(im.width) if gray.getpixel((x, y)) < 238]
+                        bbox = (
+                            max(0, min(x for x, y in non_bg) - 10),
+                            max(0, min(y for x, y in non_bg) - 8),
+                            min(im.width, max(x for x, y in non_bg) + 10),
+                            min(im.height, max(y for x, y in non_bg) + 8)
+                        ) if non_bg else None
+                    if bbox:
+                        cropped = im.crop(bbox)
+                        cropped.save(file_path, quality=95)
+                return {"message": "Logo whitespace trimmed successfully!", "url": config.brand_logo_url}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to trim logo: {str(e)}")
+    return {"message": "Logo is external or already optimized"}
+

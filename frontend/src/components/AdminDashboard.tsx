@@ -28,6 +28,7 @@ import {
   Sun,
   X,
   Upload,
+  Crop,
   ShoppingBag,
   Store,
   Calendar,
@@ -720,12 +721,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingLogo(true);
     setStoreBrandingErrorMsg('');
     try {
-      const res = await api.uploadImage(file);
+      const res = await api.uploadLogo(file);
       const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setFooterConfig((prev) => ({ ...prev, brand_logo_url: fullUrl }));
-      setStoreBrandingSuccessMsg('Logo uploaded! Click "Save Store Branding & Logo" below to apply changes.');
+      setStoreBrandingSuccessMsg('Logo uploaded & borders auto-trimmed! Click "Save Store Branding & Logo" below to apply.');
     } catch (err: any) {
       setStoreBrandingErrorMsg(err.message || 'Failed to upload logo image');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleTrimLogo = async () => {
+    if (!footerConfig.brand_logo_url) return;
+    setUploadingLogo(true);
+    setStoreBrandingErrorMsg('');
+    try {
+      const res = await api.trimLogo();
+      // append cache-buster to reload image
+      const cleanUrl = footerConfig.brand_logo_url.split('?')[0];
+      const bustedUrl = `${cleanUrl}?t=${Date.now()}`;
+      setFooterConfig((prev) => ({ ...prev, brand_logo_url: bustedUrl }));
+      setStoreBrandingSuccessMsg(res.message || 'Logo margins trimmed tightly! It will now appear much larger.');
+    } catch (err: any) {
+      setStoreBrandingErrorMsg(err.message || 'Failed to trim logo whitespace');
     } finally {
       setUploadingLogo(false);
     }
@@ -6769,8 +6788,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 src={footerConfig.brand_logo_url}
                                 alt={footerConfig.brand_name || 'Store Logo'}
                                 style={{
-                                  maxHeight: '60px',
-                                  maxWidth: '220px',
+                                  maxHeight: '85px',
+                                  maxWidth: '340px',
                                   objectFit: 'contain',
                                   display: 'block',
                                 }}
@@ -6808,6 +6827,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                   style={{ display: 'none' }}
                                 />
                               </label>
+
+                              <button
+                                type="button"
+                                onClick={handleTrimLogo}
+                                disabled={uploadingLogo}
+                                title="Auto-crop empty whitespace borders so the logo text appears larger"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 12px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#0f172a',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: '2px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                <Crop size={12} /> Auto-Trim Margins
+                              </button>
 
                               <button
                                 type="button"
@@ -6943,53 +6984,106 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         />
                       </div>
 
-                      {/* Logo Width Customizer */}
-                      <div style={{ marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
-                            Logo Width: <span style={{ color: '#000000', fontWeight: 800 }}>{footerConfig.social_links?.logo_width || 240}px</span>
-                          </label>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            {[180, 220, 260, 300].map((preset) => (
-                              <button
-                                key={preset}
-                                type="button"
-                                onClick={() => setFooterConfig({
-                                  ...footerConfig,
-                                  social_links: { ...(footerConfig.social_links || {}), logo_width: preset }
-                                })}
-                                style={{
-                                  padding: '3px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  borderRadius: '2px',
-                                  border: '1px solid #cbd5e1',
-                                  backgroundColor: (footerConfig.social_links?.logo_width || 240) === preset ? '#000000' : '#ffffff',
-                                  color: (footerConfig.social_links?.logo_width || 240) === preset ? '#ffffff' : '#334155',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                {preset}px
-                              </button>
-                            ))}
+                      {/* Logo Height & Width Customizers */}
+                      <div style={{ marginBottom: '16px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '4px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {/* Logo Height */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                              Logo Height: <span style={{ color: '#000000', fontWeight: 800 }}>{footerConfig.social_links?.logo_height || 58}px</span>
+                            </label>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {[46, 54, 62, 70].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setFooterConfig({
+                                    ...footerConfig,
+                                    social_links: { ...(footerConfig.social_links || {}), logo_height: preset }
+                                  })}
+                                  style={{
+                                    padding: '3px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    borderRadius: '2px',
+                                    border: '1px solid #cbd5e1',
+                                    backgroundColor: (Number(footerConfig.social_links?.logo_height) || 58) === preset ? '#000000' : '#ffffff',
+                                    color: (Number(footerConfig.social_links?.logo_height) || 58) === preset ? '#ffffff' : '#334155',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {preset}px
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min="36"
+                            max="80"
+                            step="2"
+                            value={footerConfig.social_links?.logo_height || 58}
+                            onChange={(e) => setFooterConfig({
+                              ...footerConfig,
+                              social_links: { ...(footerConfig.social_links || {}), logo_height: Number(e.target.value) }
+                            })}
+                            style={{ width: '100%', cursor: 'pointer', accentColor: '#000000' }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                            <span>36px (Small)</span>
+                            <span>58px (Balanced)</span>
+                            <span>80px (Extra Large)</span>
                           </div>
                         </div>
-                        <input
-                          type="range"
-                          min="140"
-                          max="380"
-                          step="10"
-                          value={footerConfig.social_links?.logo_width || 240}
-                          onChange={(e) => setFooterConfig({
-                            ...footerConfig,
-                            social_links: { ...(footerConfig.social_links || {}), logo_width: Number(e.target.value) }
-                          })}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#000000' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
-                          <span>140px (Compact)</span>
-                          <span>240px (Default)</span>
-                          <span>380px (Extra Wide)</span>
+
+                        {/* Logo Width */}
+                        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                              Logo Width: <span style={{ color: '#000000', fontWeight: 800 }}>{footerConfig.social_links?.logo_width || 280}px</span>
+                            </label>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {[200, 260, 320, 400].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setFooterConfig({
+                                    ...footerConfig,
+                                    social_links: { ...(footerConfig.social_links || {}), logo_width: preset }
+                                  })}
+                                  style={{
+                                    padding: '3px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    borderRadius: '2px',
+                                    border: '1px solid #cbd5e1',
+                                    backgroundColor: (footerConfig.social_links?.logo_width || 280) === preset ? '#000000' : '#ffffff',
+                                    color: (footerConfig.social_links?.logo_width || 280) === preset ? '#ffffff' : '#334155',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {preset}px
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min="140"
+                            max="480"
+                            step="10"
+                            value={footerConfig.social_links?.logo_width || 280}
+                            onChange={(e) => setFooterConfig({
+                              ...footerConfig,
+                              social_links: { ...(footerConfig.social_links || {}), logo_width: Number(e.target.value) }
+                            })}
+                            style={{ width: '100%', cursor: 'pointer', accentColor: '#000000' }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                            <span>140px (Compact)</span>
+                            <span>280px (Standard)</span>
+                            <span>480px (Banner)</span>
+                          </div>
                         </div>
                       </div>
 
@@ -7007,23 +7101,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           display: 'flex',
                           alignItems: 'center',
                           gap: '12px',
-                          minHeight: '64px',
+                          minHeight: '68px',
                         }}>
                           {footerConfig.brand_logo_url ? (
                             <img
                               src={footerConfig.brand_logo_url}
                               alt={footerConfig.brand_name || 'Logo'}
                               style={{
-                                height: 'auto',
-                                maxHeight: '56px',
-                                width: (footerConfig.brand_name || footerConfig.brand_subtitle)
-                                  ? 'auto'
-                                  : `${footerConfig.social_links?.logo_width || 240}px`,
+                                height: `${Number(footerConfig.social_links?.logo_height) || 58}px`,
+                                maxHeight: '75px',
+                                width: footerConfig.social_links?.logo_width
+                                  ? `${footerConfig.social_links.logo_width}px`
+                                  : 'auto',
                                 maxWidth: (footerConfig.brand_name || footerConfig.brand_subtitle)
-                                  ? `${Math.max(160, Number(footerConfig.social_links?.logo_width) || 200)}px`
-                                  : `${Math.max(280, Number(footerConfig.social_links?.logo_width) || 280)}px`,
+                                  ? `${Math.max(220, Number(footerConfig.social_links?.logo_width) || 280)}px`
+                                  : `${Math.max(300, Number(footerConfig.social_links?.logo_width) || 360)}px`,
                                 objectFit: 'contain',
-                                borderRadius: '4px',
+                                borderRadius: '2px',
                                 display: 'block',
                                 flexShrink: 0,
                               }}

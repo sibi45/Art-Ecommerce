@@ -399,6 +399,21 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  async uploadLogo(file: File): Promise<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.request<{ url: string; filename: string }>('/admin/footer/upload-logo', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async trimLogo(): Promise<{ message: string; url: string }> {
+    return this.request<{ message: string; url: string }>('/admin/footer/trim-logo', {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();
