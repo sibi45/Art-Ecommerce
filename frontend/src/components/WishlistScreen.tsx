@@ -249,7 +249,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
                   <div
                     onClick={() => {
                       onSelectPainting(painting);
-                      navigate(`/artwork/${painting.id}`);
+                      navigate(`/artwork/${painting.uuid || painting.id}`);
                     }}
                     style={{
                       height: '280px',
@@ -356,7 +356,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
                     </div>
 
                     <h3
-                      onClick={() => navigate(`/artwork/${painting.id}`)}
+                      onClick={() => navigate(`/artwork/${painting.uuid || painting.id}`)}
                       style={{
                         fontSize: '16px',
                         fontWeight: 800,
@@ -391,7 +391,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
-                        onClick={() => navigate(`/artwork/${painting.id}`)}
+                        onClick={() => navigate(`/artwork/${painting.uuid || painting.id}`)}
                         style={{
                           flex: 1,
                           padding: '10px 12px',

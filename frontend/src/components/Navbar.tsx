@@ -47,7 +47,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sections, setSections] = useState<ProductSection[]>([]);
-  const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(null);
+  const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(() => {
+    try {
+      const cached = localStorage.getItem('artweb_footer_config');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
+  });
 
   const accountRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +74,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     api.getSections().then((data) => setSections(data || [])).catch(() => {});
-    api.getFooterConfig().then((data) => setFooterConfig(data || null)).catch(() => {});
+    api.getFooterConfig().then((data) => {
+      if (data) {
+        setFooterConfig(data);
+        try {
+          localStorage.setItem('artweb_footer_config', JSON.stringify(data));
+        } catch (e) {}
+      }
+    }).catch(() => {});
   }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -140,25 +153,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                 color: '#111827',
                 lineHeight: 1,
               }}>
-                {footerConfig?.brand_name || 'Minimog'}
+                {footerConfig?.brand_name || ''}
               </div>
-              <div
-                className="brand-subtitle-mobile"
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  color: '#6b7280',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  marginTop: '1px',
-                  maxWidth: '180px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {footerConfig?.brand_subtitle || 'Curated Store'}
-              </div>
+              {footerConfig?.brand_subtitle && (
+                <div
+                  className="brand-subtitle-mobile"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: '#6b7280',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    marginTop: '1px',
+                    maxWidth: '180px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {footerConfig.brand_subtitle}
+                </div>
+              )}
             </div>
           </Link>
 
@@ -304,7 +319,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   border: 'none',
                   fontSize: '15px',
                   fontWeight: 600,
-                  color: location.pathname === '/collections' ? '#1b3b2b' : '#374151',
+                  color: (location.pathname === '/collections' || location.pathname.startsWith('/collections/') || location.pathname.startsWith('/collection/')) ? '#1b3b2b' : '#374151',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -351,7 +366,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
-                      to={`/shop?category=${cat.id}`}
+                      to={`/collections/${cat.slug || cat.id}`}
                       onClick={() => setIsCollectionOpen(false)}
                       style={{
                         display: 'block',
@@ -850,7 +865,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {categories.map((cat) => (
               <Link
                 key={cat.id}
-                to={`/shop?category=${cat.id}`}
+                to={`/collections/${cat.slug || cat.id}`}
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={{
                   padding: '8px 14px',

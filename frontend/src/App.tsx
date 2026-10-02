@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { api } from './services/api';
@@ -44,7 +44,7 @@ const ProtectedAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children
 const CustomerLayout: React.FC<{
   cartCount: number;
   cartTotal: number;
-  onOpenAuth: () => void;
+  onOpenAuth: (mode?: 'login' | 'register') => void;
   onOpenMyInquiries: () => void;
   categories: Category[];
   children: React.ReactNode;
@@ -146,11 +146,42 @@ const MainAppRoutes: React.FC = () => {
   // Modals & Navigation
   const [selectedPainting, setSelectedPainting] = useState<Painting | null>(null);
   const [inquiryPainting, setInquiryPainting] = useState<Painting | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isMyInquiriesOpen, setIsMyInquiriesOpen] = useState(false);
 
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  // URL-driven Auth state (?auth=login or ?auth=register)
+  const authParam = searchParams.get('auth');
+  const isAuthOpen = authParam === 'login' || authParam === 'register';
+  const authTab: 'login' | 'register' = authParam === 'register' ? 'register' : 'login';
+
+  const handleOpenAuth = (mode?: 'login' | 'register') => {
+    const targetMode = mode === 'register' ? 'register' : 'login';
+    const params = new URLSearchParams(searchParams);
+    params.set('auth', targetMode);
+    const searchStr = params.toString();
+    navigate(`${location.pathname}${searchStr ? `?${searchStr}` : ''}`);
+  };
+
+  const handleAuthTabChange = (mode: 'login' | 'register') => {
+    const params = new URLSearchParams(searchParams);
+    params.set('auth', mode);
+    const searchStr = params.toString();
+    navigate(`${location.pathname}${searchStr ? `?${searchStr}` : ''}`, { replace: true });
+  };
+
+  const handleCloseAuth = () => {
+    if (searchParams.has('auth')) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('auth');
+      const searchStr = params.toString();
+      navigate(`${location.pathname}${searchStr ? `?${searchStr}` : ''}`, { replace: true });
+    }
+  };
+
   const handleSelectPainting = (p: Painting) => {
-    navigate(`/artwork/${p.id}`);
+    navigate(`/artwork/${p.uuid || p.id}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -164,15 +195,14 @@ const MainAppRoutes: React.FC = () => {
   return (
     <>
       <Routes>
-        {/* Customer Store Home Route - Root Redirect to /home so the route is clearly shown */}
-        <Route path="/" element={<Navigate to="/home" replace />} />
+        {/* Customer Store Home Route - Root URL "/" (Industry Production Standard) */}
         <Route
-          path="/home"
+          path="/"
           element={
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
@@ -187,6 +217,8 @@ const MainAppRoutes: React.FC = () => {
             </CustomerLayout>
           }
         />
+        {/* Redirect /home to clean root "/" for production standard */}
+        <Route path="/home" element={<Navigate to="/" replace />} />
 
         {/* Shop / Catalog Screen Route */}
         <Route
@@ -195,7 +227,7 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
@@ -209,14 +241,52 @@ const MainAppRoutes: React.FC = () => {
           }
         />
 
-        {/* Collections Route */}
+        {/* Collections Route & Individual Collection Routes (Shopify / Industry Standard) */}
         <Route
           path="/collections"
           element={
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
+              onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
+              categories={categories}
+            >
+              <div style={{ paddingTop: '24px' }}>
+                <GalleryView
+                  onSelectPainting={handleSelectPainting}
+                  onInquirePainting={handleAddToCart}
+                />
+              </div>
+            </CustomerLayout>
+          }
+        />
+        <Route
+          path="/collections/:slug"
+          element={
+            <CustomerLayout
+              cartCount={cartItems.length}
+              cartTotal={cartTotal}
+              onOpenAuth={handleOpenAuth}
+              onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
+              categories={categories}
+            >
+              <div style={{ paddingTop: '24px' }}>
+                <GalleryView
+                  onSelectPainting={handleSelectPainting}
+                  onInquirePainting={handleAddToCart}
+                />
+              </div>
+            </CustomerLayout>
+          }
+        />
+        <Route
+          path="/collection/:slug"
+          element={
+            <CustomerLayout
+              cartCount={cartItems.length}
+              cartTotal={cartTotal}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
@@ -237,13 +307,13 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
               <ArtworkOrderPage
                 onAddToCart={handleAddToCart}
-                onOpenAuth={() => setIsAuthOpen(true)}
+                onOpenAuth={handleOpenAuth}
                 categories={categories}
               />
             </CustomerLayout>
@@ -255,13 +325,13 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
               <ArtworkOrderPage
                 onAddToCart={handleAddToCart}
-                onOpenAuth={() => setIsAuthOpen(true)}
+                onOpenAuth={handleOpenAuth}
                 categories={categories}
               />
             </CustomerLayout>
@@ -273,13 +343,13 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
               <ArtworkOrderPage
                 onAddToCart={handleAddToCart}
-                onOpenAuth={() => setIsAuthOpen(true)}
+                onOpenAuth={handleOpenAuth}
                 categories={categories}
               />
             </CustomerLayout>
@@ -293,7 +363,7 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
@@ -312,7 +382,7 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
@@ -324,7 +394,7 @@ const MainAppRoutes: React.FC = () => {
                   navigate('/shop');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                onOpenAuth={() => setIsAuthOpen(true)}
+                onOpenAuth={handleOpenAuth}
                 onViewMyInquiries={() => setIsMyInquiriesOpen(true)}
               />
             </CustomerLayout>
@@ -338,11 +408,11 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
-              <OrdersScreen onOpenAuth={() => setIsAuthOpen(true)} />
+              <OrdersScreen onOpenAuth={handleOpenAuth} />
             </CustomerLayout>
           }
         />
@@ -354,11 +424,11 @@ const MainAppRoutes: React.FC = () => {
             <CustomerLayout
               cartCount={cartItems.length}
               cartTotal={cartTotal}
-              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenAuth={handleOpenAuth}
               onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
               categories={categories}
             >
-              <ProfileScreen onOpenAuth={() => setIsAuthOpen(true)} />
+              <ProfileScreen onOpenAuth={handleOpenAuth} />
             </CustomerLayout>
           }
         />
@@ -368,27 +438,29 @@ const MainAppRoutes: React.FC = () => {
           path="/admin/*"
           element={
             <ProtectedAdminRoute>
-              <AdminDashboard onBackToStore={() => navigate('/home')} />
+              <AdminDashboard onBackToStore={() => navigate('/')} />
             </ProtectedAdminRoute>
           }
         />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       {/* Direct Quick Inquiry Modal */}
       <InquiryModal
         painting={inquiryPainting}
         onClose={() => setInquiryPainting(null)}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAuth={handleOpenAuth}
         onViewMyInquiries={() => setIsMyInquiriesOpen(true)}
       />
 
-      {/* Auth Modal for Login & Register with auto-redirect to /admin for admin role */}
+      {/* Auth Modal for Login & Register with URL sync (?auth=login or ?auth=register) */}
       <AuthModal
         isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        initialTab={authTab}
+        onTabChange={handleAuthTabChange}
+        onClose={handleCloseAuth}
         onAdminLogin={() => {
           navigate('/admin');
           window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -29,6 +29,7 @@ def init_db_and_seed():
                 );
                 ALTER TABLE paintings ADD COLUMN IF NOT EXISTS section_id INTEGER REFERENCES product_sections(id) ON DELETE SET NULL;
                 ALTER TABLE paintings ADD COLUMN IF NOT EXISTS mrp NUMERIC(12, 2);
+                ALTER TABLE paintings ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) UNIQUE;
                 ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url TEXT;
 
                 CREATE TABLE IF NOT EXISTS testimonials (
@@ -87,6 +88,14 @@ def init_db_and_seed():
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
+        # Backfill uuid for any existing paintings that don't have one
+        import uuid as uuid_lib
+        paintings_without_uuid = db.query(Painting).filter((Painting.uuid == None) | (Painting.uuid == "")).all()
+        if paintings_without_uuid:
+            for p in paintings_without_uuid:
+                p.uuid = str(uuid_lib.uuid4())
+            db.commit()
+
         # 1. Seed Admin User if not present (only hardcoded item — everything else via Admin Dashboard)
         admin_user = db.query(User).filter(User.email == settings.DEFAULT_ADMIN_EMAIL).first()
         if not admin_user:

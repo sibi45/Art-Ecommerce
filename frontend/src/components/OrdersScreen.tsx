@@ -598,7 +598,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
                       marginBottom: '20px',
                     }}>
                       <div
-                        onClick={() => inq.painting && navigate(`/artwork/${inq.painting.id}`)}
+                        onClick={() => inq.painting && navigate(`/artwork/${inq.painting.uuid || inq.painting.id}`)}
                         style={{
                           width: '90px',
                           height: '90px',
@@ -627,7 +627,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
                           {inq.painting?.artist_name || 'Master Artist'}
                         </div>
                         <h4
-                          onClick={() => inq.painting && navigate(`/artwork/${inq.painting.id}`)}
+                          onClick={() => inq.painting && navigate(`/artwork/${inq.painting.uuid || inq.painting.id}`)}
                           style={{
                             fontSize: '17px',
                             fontWeight: 700,
@@ -691,7 +691,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ onOpenAuth }) => {
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {inq.painting && (
                           <Link
-                            to={`/artwork/${inq.painting.id}`}
+                            to={`/artwork/${inq.painting.uuid || inq.painting.id}`}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',

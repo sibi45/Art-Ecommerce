@@ -1,16 +1,30 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, LogIn, UserPlus } from 'lucide-react';
+import { X, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdminLogin?: () => void;
+  initialTab?: 'login' | 'register';
+  onTabChange?: (tab: 'login' | 'register') => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLogin }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  onAdminLogin,
+  initialTab = 'login',
+  onTabChange,
+}) => {
   const { login, register } = useAuth();
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<'login' | 'register'>(initialTab);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -19,6 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLo
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLo
           marginBottom: '28px',
         }}>
           <button
-            onClick={() => { setTab('login'); setError(null); }}
+            onClick={() => { setTab('login'); setError(null); onTabChange?.('login'); }}
             style={{
               flex: 1,
               padding: '12px',
@@ -107,7 +122,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLo
             <LogIn size={18} /> Sign In
           </button>
           <button
-            onClick={() => { setTab('register'); setError(null); }}
+            onClick={() => { setTab('register'); setError(null); onTabChange?.('register'); }}
             style={{
               flex: 1,
               padding: '12px',
@@ -208,16 +223,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAdminLo
             />
           </div>
 
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: '16px' }}>
             <label className="form-label">Password *</label>
-            <input
-              type="password"
-              className="form-control"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-control"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ paddingRight: '40px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#6b7280',
+                  transition: 'color 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#111827')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button

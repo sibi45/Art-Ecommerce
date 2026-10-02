@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { Painting, Category, ProductSection, Testimonial, Banner, ShowcaseItem } from '../types';
 import { api, getImageUrl } from '../services/api';
@@ -24,6 +24,8 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   onInquirePainting,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { slug } = useParams<{ slug?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const sectionParam = searchParams.get('section');
   const categoryParam = searchParams.get('category');
@@ -60,18 +62,31 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     }
   };
 
-  // Sync URL search params
+  // Sync URL search params and collection slug
   useEffect(() => {
     if (searchUrlParam !== null) {
       setSearch(searchUrlParam);
     }
-    if (categoryParam !== null) {
+    if (slug) {
+      if (categories.length > 0) {
+        const matched = categories.find(
+          (c) => c.slug?.toLowerCase() === slug.toLowerCase() || String(c.id) === slug
+        );
+        if (matched) {
+          setSelectedCategoryId(matched.id);
+        }
+      }
+    } else if (categoryParam !== null) {
       const catId = parseInt(categoryParam);
       if (!isNaN(catId)) {
         setSelectedCategoryId(catId);
       }
+    } else {
+      if (location.pathname === '/collections' || location.pathname === '/shop' || location.pathname === '/') {
+        setSelectedCategoryId(null);
+      }
     }
-  }, [searchUrlParam, categoryParam]);
+  }, [searchUrlParam, categoryParam, slug, categories, location.pathname]);
 
   useEffect(() => {
     loadData();
@@ -198,15 +213,22 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
       {/* 1. Shop by Category Section (Minimog Style) */}
       <section style={{ maxWidth: '1380px', margin: '0 auto', padding: '40px 24px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{
-            fontSize: '22px',
-            fontWeight: 800,
-            color: '#111827',
-            margin: 0,
-            letterSpacing: '-0.01em',
-          }}>
-            Collection
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <h2 style={{
+              fontSize: '22px',
+              fontWeight: 800,
+              color: '#111827',
+              margin: 0,
+              letterSpacing: '-0.01em',
+            }}>
+              Collection
+            </h2>
+            {selectedCategory && (
+              <span style={{ fontSize: '15px', color: '#1b3b2b', fontWeight: 700 }}>
+                / {selectedCategory.name}
+              </span>
+            )}
+          </div>
 
           <button
             type="button"
@@ -248,7 +270,13 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
             return (
               <div
                 key={cat.id}
-                onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
+                onClick={() => {
+                  if (isSelected) {
+                    navigate('/collections');
+                  } else {
+                    navigate(`/collections/${cat.slug || cat.id}`);
+                  }
+                }}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -317,7 +345,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
             style={{
               borderRadius: '8px',
               overflow: 'hidden',
-              height: '210px',
               backgroundColor: '#f3f4f6',
               border: '1px solid #e5e7eb',
               position: 'relative',
@@ -329,16 +356,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
               {repeatedPromoImages.map((promo, idx) => (
                 <div
                   key={`scroll-promo-${promo.id}-${idx}`}
-                  style={{
-                    width: '260px',
-                    height: '210px',
-                    flexShrink: 0,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    backgroundColor: '#1f2937',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(229, 231, 235, 0.6)',
-                  }}
+                  className="promo-scroll-card"
                 >
                   <img
                     src={getImageUrl(promo.image_url)}
@@ -433,7 +451,13 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   setSelectedCategoryId(null);
                   setSearch('');
                   setSearchParams({});
-                  navigate('/shop');
+                  if (location.pathname.startsWith('/collections') || location.pathname.startsWith('/collection')) {
+                    navigate('/collections');
+                  } else if (location.pathname === '/shop') {
+                    navigate('/shop');
+                  } else {
+                    navigate('/');
+                  }
                 }}
                 style={{
                   background: '#f9fafb',
@@ -465,7 +489,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     setSelectedCategoryId(null);
                     setSearch('');
                     setSearchParams({});
-                    navigate('/shop');
+                    navigate('/collections');
                   }}
                   style={{
                     padding: '8px 20px',

@@ -20,7 +20,9 @@ import {
   LayoutDashboard,
   Calendar,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface ProfileScreenProps {
@@ -45,6 +47,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Status State
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -767,16 +772,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
                     Current Password
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <Key size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Key size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px' }} />
                     <input
-                      type="password"
+                      type={showOldPassword ? 'text' : 'password'}
                       value={oldPassword}
                       onChange={(e) => setOldPassword(e.target.value)}
                       placeholder="Enter current password"
                       style={{
                         width: '100%',
-                        padding: '10px 12px 10px 38px',
+                        padding: '10px 40px 10px 38px',
                         border: '1px solid #d1d5db',
                         borderRadius: '6px',
                         fontSize: '14px',
@@ -785,6 +790,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                         boxSizing: 'border-box'
                       }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowOldPassword(!showOldPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        color: '#6b7280',
+                      }}
+                      title={showOldPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showOldPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 
@@ -792,17 +813,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
                     New Password *
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Lock size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px' }} />
                     <input
-                      type="password"
+                      type={showNewPassword ? 'text' : 'password'}
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Minimum 6 characters"
                       style={{
                         width: '100%',
-                        padding: '10px 12px 10px 38px',
+                        padding: '10px 40px 10px 38px',
                         border: '1px solid #d1d5db',
                         borderRadius: '6px',
                         fontSize: '14px',
@@ -811,6 +832,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                         boxSizing: 'border-box'
                       }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        color: '#6b7280',
+                      }}
+                      title={showNewPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 
@@ -818,17 +855,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
                     Confirm New Password *
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Lock size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px' }} />
                     <input
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirm new password"
                       style={{
                         width: '100%',
-                        padding: '10px 12px 10px 38px',
+                        padding: '10px 40px 10px 38px',
                         border: '1px solid #d1d5db',
                         borderRadius: '6px',
                         fontSize: '14px',
@@ -837,6 +874,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenAuth }) => {
                         boxSizing: 'border-box'
                       }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        color: '#6b7280',
+                      }}
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 

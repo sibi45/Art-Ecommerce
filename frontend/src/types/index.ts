@@ -28,6 +28,7 @@ export interface Category {
 
 export interface Painting {
   id: number;
+  uuid?: string;
   title: string;
   artist_name: string;
   description: string;
@@ -149,6 +150,29 @@ export interface CustomFooterLink {
   url: string;
 }
 
+export interface ArtworkTabsConfig {
+  tab1_title?: string;
+  tab2_title?: string;
+  tab2_intro?: string;
+  tab2_point1?: string;
+  tab2_point2?: string;
+  tab2_point3?: string;
+  tab3_title?: string;
+  tab3_intro?: string;
+  tab3_point1?: string;
+  tab3_point2?: string;
+  tab3_point3?: string;
+  badge1_icon?: string;
+  badge1_title?: string;
+  badge1_subtitle?: string;
+  badge2_icon?: string;
+  badge2_title?: string;
+  badge2_subtitle?: string;
+  badge3_icon?: string;
+  badge3_title?: string;
+  badge3_subtitle?: string;
+}
+
 export interface FooterConfig {
   id?: number;
   brand_name: string;
@@ -168,6 +192,6 @@ export interface FooterConfig {
   copyright_text: string;
   contact_phone?: string;
   contact_email?: string;
-  social_links?: Record<string, string>;
+  social_links?: Record<string, any>;
   updated_at?: string;
 }

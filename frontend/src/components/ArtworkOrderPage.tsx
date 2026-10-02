@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Painting, Category } from '../types';
+import { Painting, Category, ArtworkTabsConfig } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -26,8 +26,68 @@ import {
   Calendar,
   MapPin,
   ChevronRight,
-  Info
+  Info,
+  Package
 } from 'lucide-react';
+
+const DEFAULT_ARTWORK_TABS: ArtworkTabsConfig = {
+  tab1_title: 'Curatorial Note',
+  tab2_title: 'Provenance & COA',
+  tab2_intro: 'Every acquisition from our gallery includes a registered, tamper-evident Certificate of Authenticity (COA) signed directly by {artist} and counter-stamped by our Chief Curator.',
+  tab2_point1: 'Official gallery archive serial registration number',
+  tab2_point2: 'Archival acid-free cotton certificate backing',
+  tab2_point3: 'Guaranteed museum provenance with transfer of ownership',
+
+  tab3_title: 'White-Glove Shipping',
+  tab3_intro: 'We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing.',
+  tab3_point1: 'Complimentary insured door-to-door courier across India',
+  tab3_point2: 'Estimated dispatch: 24 to 48 hours with live tracking',
+  tab3_point3: 'Unboxing inspection and 14-day hassle-free returns',
+
+  badge1_icon: 'shield-check',
+  badge1_title: '100% Authentic',
+  badge1_subtitle: 'Certificate included',
+  badge2_icon: 'truck',
+  badge2_title: 'Free Insured Transit',
+  badge2_subtitle: 'Reinforced art crating',
+  badge3_icon: 'rotate-ccw',
+  badge3_title: '14-Day In-Home Trial',
+  badge3_subtitle: 'Satisfaction guarantee',
+};
+
+const renderTrustBadgeIcon = (iconName?: string, defaultFallback: 'shield' | 'truck' | 'rotate' = 'shield', size = 20) => {
+  const icon = (iconName || '').toLowerCase().trim();
+  switch (icon) {
+    case 'truck':
+      return <Truck size={size} color="#0284c7" style={{ margin: '0 auto 6px' }} />;
+    case 'rotate-ccw':
+    case 'refresh':
+    case 'return':
+      return <RotateCcw size={size} color="#d97706" style={{ margin: '0 auto 6px' }} />;
+    case 'award':
+      return <Award size={size} color="#8b5cf6" style={{ margin: '0 auto 6px' }} />;
+    case 'sparkles':
+      return <Sparkles size={size} color="#eab308" style={{ margin: '0 auto 6px' }} />;
+    case 'check-circle':
+    case 'check':
+      return <CheckCircle2 size={size} color="#059669" style={{ margin: '0 auto 6px' }} />;
+    case 'heart':
+      return <Heart size={size} color="#e11d48" style={{ margin: '0 auto 6px' }} />;
+    case 'package':
+      return <Package size={size} color="#4f46e5" style={{ margin: '0 auto 6px' }} />;
+    case 'lock':
+      return <Lock size={size} color="#475569" style={{ margin: '0 auto 6px' }} />;
+    case 'star':
+      return <Star size={size} color="#f59e0b" style={{ margin: '0 auto 6px' }} />;
+    case 'shield':
+    case 'shield-check':
+      return <ShieldCheck size={size} color="#059669" style={{ margin: '0 auto 6px' }} />;
+    default:
+      if (defaultFallback === 'truck') return <Truck size={size} color="#0284c7" style={{ margin: '0 auto 6px' }} />;
+      if (defaultFallback === 'rotate') return <RotateCcw size={size} color="#d97706" style={{ margin: '0 auto 6px' }} />;
+      return <ShieldCheck size={size} color="#059669" style={{ margin: '0 auto 6px' }} />;
+  }
+};
 
 interface ArtworkOrderPageProps {
   onAddToCart: (painting: Painting) => void;
@@ -73,6 +133,44 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+
+  // WhatsApp concierge number configured by admin
+  const [whatsappNumber, setWhatsappNumber] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem('artweb_footer_config');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.social_links?.whatsapp || parsed?.contact_phone || '';
+      }
+    } catch (e) {}
+    return '';
+  });
+
+  // Dynamic Information Tabs and Trust Badges configured from Admin
+  const [artworkTabs, setArtworkTabs] = useState<ArtworkTabsConfig>(() => {
+    try {
+      const cached = localStorage.getItem('artweb_footer_config');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.social_links?.artwork_tabs) {
+          return { ...DEFAULT_ARTWORK_TABS, ...parsed.social_links.artwork_tabs };
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_ARTWORK_TABS;
+  });
+
+  useEffect(() => {
+    api.getFooterConfig().then((cfg) => {
+      if (cfg) {
+        const num = cfg?.social_links?.whatsapp || cfg?.contact_phone || '';
+        setWhatsappNumber(num);
+        if (cfg?.social_links?.artwork_tabs) {
+          setArtworkTabs({ ...DEFAULT_ARTWORK_TABS, ...cfg.social_links.artwork_tabs });
+        }
+      }
+    }).catch(() => {});
+  }, []);
   const [shippingAddress, setShippingAddress] = useState('');
   const [cityPin, setCityPin] = useState('');
   const [preferredContact, setPreferredContact] = useState<'whatsapp' | 'phone' | 'email'>('whatsapp');
@@ -86,12 +184,12 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
 
   useEffect(() => {
     if (id) {
-      loadArtwork(Number(id));
+      loadArtwork(id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [id]);
 
-  const loadArtwork = async (paintingId: number) => {
+  const loadArtwork = async (paintingId: number | string) => {
     setLoading(true);
     setError(null);
     try {
@@ -102,9 +200,9 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
       // Load related artworks
       const all = await api.getPaintings();
       const related = all
-        .filter((p) => p.id !== paintingId && (p.category_id === data.category_id || p.artist_name === data.artist_name))
+        .filter((p) => p.id !== data.id && (p.category_id === data.category_id || p.artist_name === data.artist_name))
         .slice(0, 4);
-      setRelatedPaintings(related.length > 0 ? related : all.filter(p => p.id !== paintingId).slice(0, 4));
+      setRelatedPaintings(related.length > 0 ? related : all.filter(p => p.id !== data.id).slice(0, 4));
     } catch (err: any) {
       setError(err.message || 'Artwork not found or has been unlisted.');
     } finally {
@@ -287,8 +385,16 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
       <div className="responsive-padding-mobile" style={{ maxWidth: '1320px', margin: '0 auto', padding: '36px 24px 60px' }}>
         <div className="responsive-detail-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)', gap: '48px', alignItems: 'start' }}>
           
-          {/* LEFT: Master Artwork Viewer & Visualizer */}
-          <div>
+          {/* LEFT: Master Artwork Viewer & Visualizer (Sticky on scroll) */}
+          <div
+            className="sticky-artwork-viewer"
+            style={{
+              position: 'sticky',
+              top: '84px',
+              alignSelf: 'start',
+              zIndex: 10,
+            }}
+          >
             {/* Viewer Mode Tabs */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
@@ -373,11 +479,12 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 borderRadius: '12px',
                 backgroundColor: viewerMode === 'room' ? '#e2e8f0' : '#f8f8f7',
                 border: '1px solid #e4e4e7',
-                minHeight: '520px',
+                minHeight: '440px',
+                maxHeight: 'calc(100vh - 160px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: viewerMode === 'room' ? '60px 40px 100px' : '40px',
+                padding: viewerMode === 'room' ? '40px 30px 80px' : '30px',
                 overflow: 'hidden',
                 transition: 'all 0.3s ease',
               }}
@@ -801,10 +908,16 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 </div>
 
                 {/* Direct WhatsApp Concierge CTA */}
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Hello, I am interested in inquiring about the artwork "${painting.title}" by ${painting.artist_name} priced at ${formatPrice(painting.price)}. Reference: ${window.location.href}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                {(() => {
+                  const cleanPhone = (whatsappNumber || '').replace(/[^0-9]/g, '');
+                  const waUrl = cleanPhone
+                    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello, I am interested in inquiring about the artwork "${painting.title}" by ${painting.artist_name} priced at ${formatPrice(painting.price)}. Reference: ${window.location.href}`)}`
+                    : `https://wa.me/?text=${encodeURIComponent(`Hello, I am interested in inquiring about the artwork "${painting.title}" by ${painting.artist_name} priced at ${formatPrice(painting.price)}. Reference: ${window.location.href}`)}`;
+                  return (
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -822,6 +935,8 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 >
                   <MessageCircle size={16} /> Direct Inquiry on WhatsApp
                 </a>
+                  );
+                })()}
               </div>
             )}
 
@@ -1104,7 +1219,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Curatorial Note
+                {artworkTabs.tab1_title || 'Curatorial Note'}
               </button>
 
               <button
@@ -1121,7 +1236,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Provenance & COA
+                {artworkTabs.tab2_title || 'Provenance & COA'}
               </button>
 
               <button
@@ -1138,7 +1253,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                   fontSize: '13px',
                 }}
               >
-                White-Glove Shipping
+                {artworkTabs.tab3_title || 'White-Glove Shipping'}
               </button>
             </div>
 
@@ -1158,12 +1273,12 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               {activeTab === 'authenticity' && (
                 <div>
                   <p style={{ margin: '0 0 8px 0' }}>
-                    Every acquisition from our gallery includes a registered, tamper-evident <strong>Certificate of Authenticity (COA)</strong> signed directly by {painting.artist_name || 'the master artist'} and counter-stamped by our Chief Curator.
+                    {(artworkTabs.tab2_intro || 'Every acquisition from our gallery includes a registered, tamper-evident Certificate of Authenticity (COA) signed directly by {artist} and counter-stamped by our Chief Curator.').replace('{artist}', painting.artist_name || 'the master artist')}
                   </p>
                   <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12.5px' }}>
-                    <li>Official gallery archive serial registration number</li>
-                    <li>Archival acid-free cotton certificate backing</li>
-                    <li>Guaranteed museum provenance with transfer of ownership</li>
+                    {artworkTabs.tab2_point1 && <li>{artworkTabs.tab2_point1}</li>}
+                    {artworkTabs.tab2_point2 && <li>{artworkTabs.tab2_point2}</li>}
+                    {artworkTabs.tab2_point3 && <li>{artworkTabs.tab2_point3}</li>}
                   </ul>
                 </div>
               )}
@@ -1171,12 +1286,12 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               {activeTab === 'shipping' && (
                 <div>
                   <p style={{ margin: '0 0 8px 0' }}>
-                    We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing.
+                    {artworkTabs.tab3_intro || 'We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing.'}
                   </p>
                   <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12.5px' }}>
-                    <li>Complimentary insured door-to-door courier across India</li>
-                    <li>Estimated dispatch: 24 to 48 hours with live tracking</li>
-                    <li>Unboxing inspection and 14-day hassle-free returns</li>
+                    {artworkTabs.tab3_point1 && <li>{artworkTabs.tab3_point1}</li>}
+                    {artworkTabs.tab3_point2 && <li>{artworkTabs.tab3_point2}</li>}
+                    {artworkTabs.tab3_point3 && <li>{artworkTabs.tab3_point3}</li>}
                   </ul>
                 </div>
               )}
@@ -1196,9 +1311,9 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 backgroundColor: '#fafafa',
                 textAlign: 'center',
               }}>
-                <ShieldCheck size={20} color="#059669" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>100% Authentic</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Certificate included</div>
+                {renderTrustBadgeIcon(artworkTabs.badge1_icon, 'shield')}
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{artworkTabs.badge1_title || '100% Authentic'}</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>{artworkTabs.badge1_subtitle || 'Certificate included'}</div>
               </div>
 
               <div style={{
@@ -1208,9 +1323,9 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 backgroundColor: '#fafafa',
                 textAlign: 'center',
               }}>
-                <Truck size={20} color="#0284c7" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Free Insured Transit</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Reinforced art crating</div>
+                {renderTrustBadgeIcon(artworkTabs.badge2_icon, 'truck')}
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{artworkTabs.badge2_title || 'Free Insured Transit'}</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>{artworkTabs.badge2_subtitle || 'Reinforced art crating'}</div>
               </div>
 
               <div style={{
@@ -1220,9 +1335,9 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                 backgroundColor: '#fafafa',
                 textAlign: 'center',
               }}>
-                <RotateCcw size={20} color="#d97706" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>14-Day In-Home Trial</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Satisfaction guarantee</div>
+                {renderTrustBadgeIcon(artworkTabs.badge3_icon, 'rotate')}
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{artworkTabs.badge3_title || '14-Day In-Home Trial'}</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>{artworkTabs.badge3_subtitle || 'Satisfaction guarantee'}</div>
               </div>
             </div>
           </div>
@@ -1263,7 +1378,7 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               {relatedPaintings.map((rel) => (
                 <div
                   key={rel.id}
-                  onClick={() => navigate(`/artwork/${rel.id}`)}
+                  onClick={() => navigate(`/artwork/${rel.uuid || rel.id}`)}
                   style={{
                     border: '1px solid #f1f5f9',
                     borderRadius: '8px',

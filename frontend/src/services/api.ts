@@ -163,7 +163,7 @@ class ApiClient {
     return this.request<Painting[]>(`/paintings${queryString}`);
   }
 
-  async getPainting(id: number): Promise<Painting> {
+  async getPainting(id: number | string): Promise<Painting> {
     return this.request<Painting>(`/paintings/${id}`);
   }
 

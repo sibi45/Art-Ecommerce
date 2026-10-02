@@ -94,8 +94,14 @@ def list_paintings(
 
 
 @router.get("/paintings/{painting_id}", response_model=PaintingResponse)
-def get_painting_detail(painting_id: int, db: Session = Depends(get_db)):
-    painting = db.query(Painting).filter(Painting.id == painting_id).first()
+def get_painting_detail(painting_id: str, db: Session = Depends(get_db)):
+    painting = None
+    if painting_id.isdigit():
+        painting = db.query(Painting).filter(Painting.id == int(painting_id)).first()
+    
+    if not painting:
+        painting = db.query(Painting).filter(Painting.uuid == painting_id).first()
+
     if not painting:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

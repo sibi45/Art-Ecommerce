@@ -43,17 +43,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     goToSlide(nextIdx, 'next');
   };
 
-  // Smooth automatic rotation every 6 seconds
+  // Smooth automatic rotation every 2 seconds
   useEffect(() => {
-    if (totalSlides <= 1 || isPaused) return;
+    if (totalSlides <= 1) return;
 
     const timer = setInterval(() => {
-      const nextIdx = currentSlideIndex === totalSlides - 1 ? 0 : currentSlideIndex + 1;
-      goToSlide(nextIdx, 'next');
-    }, 6000);
+      setCurrentSlideIndex((prevIdx) => (prevIdx === totalSlides - 1 ? 0 : prevIdx + 1));
+    }, 2000);
 
     return () => clearInterval(timer);
-  }, [totalSlides, isPaused, currentSlideIndex, isTransitioning]);
+  }, [totalSlides, currentSlideIndex]);
 
   if (!banners || banners.length === 0) {
     return null;
@@ -93,50 +92,53 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
           {/* Left Column: Minimog Style Copy & CTAs */}
           <div>
-            {/* Pill Badge */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '5px 12px',
-              borderRadius: '20px',
-              backgroundColor: '#ffffff',
-              border: '1px solid #e5e7eb',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              color: '#374151',
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            }}>
-              <span>✨</span> {displayTag}
+            {/* Text details container */}
+            <div key={`hero-text-${currentSlideIndex}`} style={{ animation: 'promoFadeIn 0.4s ease' }}>
+              {/* Pill Badge */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '20px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                color: '#374151',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginBottom: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <span>✨</span> {displayTag}
+              </div>
+
+              {/* Headline */}
+              <h1 style={{
+                fontSize: 'clamp(2.4rem, 4.2vw, 3.8rem)',
+                fontWeight: 800,
+                lineHeight: 1.1,
+                color: '#111827',
+                marginBottom: '16px',
+                letterSpacing: '-0.02em',
+                fontFamily: "'Roboto Condensed', sans-serif",
+              }}>
+                {displayTitle}
+              </h1>
+
+              {/* Subheading */}
+              <p style={{
+                fontSize: '16px',
+                lineHeight: 1.6,
+                color: '#4b5563',
+                marginBottom: '28px',
+                maxWidth: '520px',
+                fontWeight: 400,
+              }}>
+                {displayDesc}
+              </p>
             </div>
-
-            {/* Headline */}
-            <h1 style={{
-              fontSize: 'clamp(2.4rem, 4.2vw, 3.8rem)',
-              fontWeight: 800,
-              lineHeight: 1.1,
-              color: '#111827',
-              marginBottom: '16px',
-              letterSpacing: '-0.02em',
-              fontFamily: "'Roboto Condensed', sans-serif",
-            }}>
-              {displayTitle}
-            </h1>
-
-            {/* Subheading */}
-            <p style={{
-              fontSize: '16px',
-              lineHeight: 1.6,
-              color: '#4b5563',
-              marginBottom: '28px',
-              maxWidth: '520px',
-              fontWeight: 400,
-            }}>
-              {displayDesc}
-            </p>
 
             {/* Action Buttons (Minimog Green + Outline) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '38px' }}>
@@ -212,6 +214,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             }}>
               {activeBanner.image_url && (
                 <img
+                  key={`hero-img-${currentSlideIndex}`}
                   src={activeBanner.image_url}
                   alt={activeBanner.title || 'Curated Artwork'}
                   style={{
@@ -219,6 +222,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     height: '100%',
                     objectFit: 'cover',
                     display: 'block',
+                    animation: 'promoFadeIn 0.4s ease',
                     transition: 'transform 0.4s ease',
                   }}
                 />

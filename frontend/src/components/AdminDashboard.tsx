@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Painting, Category, Inquiry, AdminStats, User, Banner, ShowcaseItem, ProductSection, Testimonial, FooterConfig, FeatureBadge, CustomFooterLink } from '../types';
+import { Painting, Category, Inquiry, AdminStats, User, Banner, ShowcaseItem, ProductSection, Testimonial, FooterConfig, FeatureBadge, CustomFooterLink, ArtworkTabsConfig } from '../types';
 import { api, BACKEND_URL, getImageUrl } from '../services/api';
 import {
   LayoutDashboard,
@@ -52,9 +52,12 @@ import {
   KeyRound,
   EyeOff,
   Menu,
+  RotateCcw,
   SlidersHorizontal,
   Filter,
   LogOut,
+  Heart,
+  Star,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -259,6 +262,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   // Inquiry filter
   const [inquiryStatusFilter, setInquiryStatusFilter] = useState<string>('');
   const [inquiryNotes, setInquiryNotes] = useState<{ [key: number]: string }>({});
+
+  // WhatsApp Order & Inquiry Number Modal state
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [tempWhatsappNumber, setTempWhatsappNumber] = useState('');
+  const [isSavingWhatsapp, setIsSavingWhatsapp] = useState(false);
+  const [whatsappSaveSuccess, setWhatsappSaveSuccess] = useState(false);
+
+  // Artwork Page Information Tabs & Trust Badges Modal state
+  const [showArtworkTabsModal, setShowArtworkTabsModal] = useState(false);
 
   // Current Logged-in Admin Profile & Password Reset state
   const [adminUser, setAdminUser] = useState<User | null>(null);
@@ -681,6 +693,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     try {
       const updated = await api.updateFooterConfig(footerConfig);
       setFooterConfig(updated);
+      try {
+        localStorage.setItem('artweb_footer_config', JSON.stringify(updated));
+      } catch (e) {}
       setFooterSaveSuccess(true);
       setTimeout(() => setFooterSaveSuccess(false), 4000);
     } catch (err: any) {
@@ -728,6 +743,146 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
         [field]: value,
       },
     }));
+  };
+
+  const handleSaveWhatsappNumber = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingWhatsapp(true);
+    setWhatsappSaveSuccess(false);
+    try {
+      const num = tempWhatsappNumber.trim();
+      const updatedConfig = {
+        ...footerConfig,
+        contact_phone: num,
+        social_links: {
+          ...(footerConfig.social_links || {}),
+          whatsapp: num,
+        },
+      };
+      const updated = await api.updateFooterConfig(updatedConfig);
+      setFooterConfig(updated);
+      try {
+        localStorage.setItem('artweb_footer_config', JSON.stringify(updated));
+      } catch (e) {}
+      setWhatsappSaveSuccess(true);
+      setTimeout(() => {
+        setWhatsappSaveSuccess(false);
+        setShowWhatsappModal(false);
+      }, 900);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update WhatsApp number');
+    } finally {
+      setIsSavingWhatsapp(false);
+    }
+  };
+
+  const DEFAULT_ARTWORK_TABS: ArtworkTabsConfig = {
+    tab1_title: 'Curatorial Note',
+    tab2_title: 'Provenance & COA',
+    tab2_intro: 'Every acquisition from our gallery includes a registered, tamper-evident Certificate of Authenticity (COA) signed directly by {artist} and counter-stamped by our Chief Curator.',
+    tab2_point1: 'Official gallery archive serial registration number',
+    tab2_point2: 'Archival acid-free cotton certificate backing',
+    tab2_point3: 'Guaranteed museum provenance with transfer of ownership',
+
+    tab3_title: 'White-Glove Shipping',
+    tab3_intro: 'We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing.',
+    tab3_point1: 'Complimentary insured door-to-door courier across India',
+    tab3_point2: 'Estimated dispatch: 24 to 48 hours with live tracking',
+    tab3_point3: 'Unboxing inspection and 14-day hassle-free returns',
+
+    badge1_icon: 'shield-check',
+    badge1_title: '100% Authentic',
+    badge1_subtitle: 'Certificate included',
+    badge2_icon: 'truck',
+    badge2_title: 'Free Insured Transit',
+    badge2_subtitle: 'Reinforced art crating',
+    badge3_icon: 'rotate-ccw',
+    badge3_title: '14-Day In-Home Trial',
+    badge3_subtitle: 'Satisfaction guarantee',
+  };
+
+  const BADGE_ICON_OPTIONS = [
+    { value: 'shield-check', label: '🛡️ Shield Check (Authentic / Safe)' },
+    { value: 'truck', label: '🚚 Delivery Truck (Insured Transit)' },
+    { value: 'rotate-ccw', label: '🔄 Rotate / Return (In-Home Trial)' },
+    { value: 'award', label: '🏅 Award Ribbon (Museum Quality)' },
+    { value: 'sparkles', label: '✨ Sparkles (Original Masterpiece)' },
+    { value: 'check-circle', label: '✔️ Checkmark Circle (Verified)' },
+    { value: 'package', label: '📦 Art Crate / Packaging' },
+    { value: 'heart', label: '❤️ Heart (Collector Satisfaction)' },
+    { value: 'lock', label: '🔒 Lock (Secure Transaction)' },
+    { value: 'star', label: '⭐ Star (5-Star Provenance)' },
+  ];
+
+  const renderAdminBadgeIcon = (iconName?: string, defaultFallback: 'shield' | 'truck' | 'rotate' = 'shield', size = 16) => {
+    const icon = (iconName || '').toLowerCase().trim();
+    switch (icon) {
+      case 'truck':
+        return <Truck size={size} color="#0284c7" />;
+      case 'rotate-ccw':
+      case 'refresh':
+      case 'return':
+        return <RotateCcw size={size} color="#d97706" />;
+      case 'award':
+        return <Award size={size} color="#8b5cf6" />;
+      case 'sparkles':
+        return <Sparkles size={size} color="#eab308" />;
+      case 'check-circle':
+      case 'check':
+        return <CheckCircle2 size={size} color="#059669" />;
+      case 'heart':
+        return <Heart size={size} color="#e11d48" />;
+      case 'package':
+        return <Package size={size} color="#4f46e5" />;
+      case 'lock':
+        return <Lock size={size} color="#475569" />;
+      case 'star':
+        return <Star size={size} color="#f59e0b" />;
+      case 'shield':
+      case 'shield-check':
+        return <ShieldCheck size={size} color="#059669" />;
+      default:
+        if (defaultFallback === 'truck') return <Truck size={size} color="#0284c7" />;
+        if (defaultFallback === 'rotate') return <RotateCcw size={size} color="#d97706" />;
+        return <ShieldCheck size={size} color="#059669" />;
+    }
+  };
+
+  const getArtworkTabs = (): ArtworkTabsConfig => {
+    return {
+      ...DEFAULT_ARTWORK_TABS,
+      ...(footerConfig.social_links?.artwork_tabs || {}),
+    };
+  };
+
+  const handleUpdateArtworkTab = (field: keyof ArtworkTabsConfig, value: string) => {
+    const currentTabs = getArtworkTabs();
+    const updatedTabs = { ...currentTabs, [field]: value };
+    setFooterConfig((prev) => ({
+      ...prev,
+      social_links: {
+        ...(prev.social_links || {}),
+        artwork_tabs: updatedTabs,
+      },
+    }));
+  };
+
+  const handleSaveArtworkTabs = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingFooter(true);
+    try {
+      const updated = await api.updateFooterConfig(footerConfig);
+      setFooterConfig(updated);
+      try {
+        localStorage.setItem('artweb_footer_config', JSON.stringify(updated));
+      } catch (e) {}
+      alert('Artwork tabs & trust badges updated successfully!');
+      setShowArtworkTabsModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save artwork tabs');
+    } finally {
+      setIsSavingFooter(false);
+    }
   };
 
   // ===================== DASHBOARD DATE & TIME FILTER LOGIC =====================
@@ -1588,9 +1743,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     );
   });
 
-  // Calculate monthly overview heights for the bar chart
-  const barChartHeights = [35, 45, 65, 85, 40, 95, 30, 75, 55, 60, 48, 80];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const [overviewMetric, setOverviewMetric] = useState<'revenue' | 'inquiries'>('revenue');
+  const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
+
+  // Dynamic monthly overview data calculated directly from real store inquiries
+  const monthlyOverviewData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const monthlyTotals = monthNames.map((name, monthIndex) => {
+      // Find inquiries in this month
+      const monthInquiries = inquiries.filter((inq) => {
+        if (!inq.created_at) return false;
+        try {
+          const d = new Date(inq.created_at);
+          return d.getMonth() === monthIndex;
+        } catch {
+          return false;
+        }
+      });
+
+      const revenue = monthInquiries.reduce((sum, inq) => sum + (Number(inq.quoted_price) || 0), 0);
+      const count = monthInquiries.length;
+
+      return {
+        month: name,
+        monthIndex,
+        revenue,
+        count,
+      };
+    });
+
+    const maxRevenue = Math.max(...monthlyTotals.map((m) => m.revenue), 0);
+    const maxCount = Math.max(...monthlyTotals.map((m) => m.count), 0);
+
+    // Dynamic clean ceiling for Y-axis
+    let chartMaxRevenue = 50000;
+    if (maxRevenue > 0) {
+      if (maxRevenue <= 15000) chartMaxRevenue = 20000;
+      else if (maxRevenue <= 40000) chartMaxRevenue = 50000;
+      else if (maxRevenue <= 80000) chartMaxRevenue = 100000;
+      else chartMaxRevenue = Math.ceil((maxRevenue * 1.25) / 25000) * 25000;
+    }
+
+    const chartMaxCount = Math.max(10, Math.ceil(maxCount * 1.3));
+
+    return {
+      monthlyTotals,
+      maxRevenue,
+      chartMaxRevenue,
+      chartMaxCount,
+    };
+  }, [inquiries]);
 
   return (
     <div style={{
@@ -2556,60 +2759,194 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 display: 'grid',
                 gridTemplateColumns: '1.6fr 1.1fr',
                 gap: '20px',
+                alignItems: 'stretch',
               }}>
                 {/* Left Card: Overview Bar Chart */}
                 <div style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e5e7eb',
-                  borderRadius: '2px',
-                  padding: '20px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                  borderRadius: '8px',
+                  padding: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#000000', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    Overview
-                  </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#09090b', margin: 0 }}>
+                        Overview
+                      </h3>
+                      <p style={{ fontSize: '12.5px', color: '#71717a', margin: '3px 0 0 0' }}>
+                        Monthly {overviewMetric === 'revenue' ? 'Sales Revenue' : 'Inquiries CRM Volume'}
+                      </p>
+                    </div>
+
+                    {/* Metric Toggle: Revenue vs Inquiries */}
+                    <div style={{ display: 'flex', backgroundColor: '#f4f4f5', padding: '3px', borderRadius: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setOverviewMetric('revenue')}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: overviewMetric === 'revenue' ? '#ffffff' : 'transparent',
+                          color: overviewMetric === 'revenue' ? '#09090b' : '#71717a',
+                          boxShadow: overviewMetric === 'revenue' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Revenue (₹)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOverviewMetric('inquiries')}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: overviewMetric === 'inquiries' ? '#ffffff' : 'transparent',
+                          color: overviewMetric === 'inquiries' ? '#09090b' : '#71717a',
+                          boxShadow: overviewMetric === 'inquiries' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Inquiries (Count)
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Visual Bar Chart */}
-                  <div style={{ display: 'flex', height: '240px', alignItems: 'flex-end', gap: '16px' }}>
+                  <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    height: '330px',
+                    alignItems: 'flex-end',
+                    gap: '16px',
+                    position: 'relative',
+                    paddingTop: '24px',
+                  }}>
                     {/* Y-axis labels */}
                     <div style={{
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      height: '210px',
+                      height: '280px',
                       fontSize: '11px',
                       color: '#71717a',
                       paddingRight: '8px',
+                      textAlign: 'right',
+                      minWidth: '60px',
                     }}>
-                      <span>₹60,000</span>
-                      <span>₹45,000</span>
-                      <span>₹30,000</span>
-                      <span>₹15,000</span>
-                      <span>₹0</span>
+                      {overviewMetric === 'revenue' ? (
+                        <>
+                          <span>₹{(monthlyOverviewData.chartMaxRevenue).toLocaleString('en-IN')}</span>
+                          <span>₹{(Math.round(monthlyOverviewData.chartMaxRevenue * 0.75)).toLocaleString('en-IN')}</span>
+                          <span>₹{(Math.round(monthlyOverviewData.chartMaxRevenue * 0.5)).toLocaleString('en-IN')}</span>
+                          <span>₹{(Math.round(monthlyOverviewData.chartMaxRevenue * 0.25)).toLocaleString('en-IN')}</span>
+                          <span>₹0</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{monthlyOverviewData.chartMaxCount}</span>
+                          <span>{Math.round(monthlyOverviewData.chartMaxCount * 0.75)}</span>
+                          <span>{Math.round(monthlyOverviewData.chartMaxCount * 0.5)}</span>
+                          <span>{Math.round(monthlyOverviewData.chartMaxCount * 0.25)}</span>
+                          <span>0</span>
+                        </>
+                      )}
                     </div>
 
-                    {/* Bars for each month */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '210px', paddingBottom: '20px', borderBottom: '1px solid #e5e7eb' }}>
-                      {months.map((m, idx) => (
-                        <div key={m} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1 }}>
+                    {/* Bars Grid */}
+                    <div style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      justifyContent: 'space-between',
+                      height: '280px',
+                      borderBottom: '1px solid #e5e7eb',
+                      gap: '8px',
+                      position: 'relative',
+                    }}>
+                      {/* Grid background guidelines */}
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', top: '25%', left: 0, right: 0, borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', top: '75%', left: 0, right: 0, borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+
+                      {monthlyOverviewData.monthlyTotals.map((m, idx) => {
+                        const val = overviewMetric === 'revenue' ? m.revenue : m.count;
+                        const maxVal = overviewMetric === 'revenue' ? monthlyOverviewData.chartMaxRevenue : monthlyOverviewData.chartMaxCount;
+                        const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                        const isHovered = hoveredMonthIndex === idx;
+
+                        return (
                           <div
+                            key={m.month}
+                            onMouseEnter={() => setHoveredMonthIndex(idx)}
+                            onMouseLeave={() => setHoveredMonthIndex(null)}
                             style={{
-                              width: '24px',
-                              height: `${barChartHeights[idx]}%`,
-                              backgroundColor: '#000000',
-                              borderRadius: '2px 2px 0 0',
-                              transition: 'height 0.4s ease',
+                              flex: 1,
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              position: 'relative',
                               cursor: 'pointer',
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#52525b')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#000000')}
-                            title={`${m}: ${barChartHeights[idx] * 600}`}
-                          />
-                          <span style={{ fontSize: '11px', color: '#71717a', position: 'absolute', bottom: '0px' }}>
-                            {m}
-                          </span>
-                        </div>
-                      ))}
+                          >
+                            {/* Hover Tooltip */}
+                            {isHovered && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '-36px',
+                                zIndex: 10,
+                                backgroundColor: '#09090b',
+                                color: '#ffffff',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                pointerEvents: 'none',
+                              }}>
+                                {m.month}: ₹{m.revenue.toLocaleString('en-IN')} ({m.count} inquiries)
+                              </div>
+                            )}
+
+                            {/* The Bar */}
+                            <div
+                              style={{
+                                width: '80%',
+                                maxWidth: '30px',
+                                minWidth: '12px',
+                                height: val > 0 ? `${Math.max(6, pct)}%` : '3px',
+                                backgroundColor: isHovered ? '#1b3b2b' : (val > 0 ? '#09090b' : '#e4e4e7'),
+                                borderRadius: '4px 4px 0 0',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              }}
+                            />
+                            {/* Month Label */}
+                            <span style={{
+                              fontSize: '11px',
+                              color: isHovered ? '#09090b' : (val > 0 ? '#18181b' : '#a1a1aa'),
+                              fontWeight: isHovered || val > 0 ? 700 : 500,
+                              marginTop: '8px',
+                            }}>
+                              {m.month}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -2618,11 +2955,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 <div style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e4e4e7',
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   padding: '24px',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}>
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '16px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#09090b', margin: 0 }}>
                       Recent Inquiries & Orders
                     </h3>
@@ -2633,10 +2973,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     </p>
                   </div>
 
-                  {/* List of Recent Sales */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* List of Recent Sales with sleek scrolling */}
+                  <div
+                    className="custom-admin-scrollbar"
+                    style={{
+                      flex: 1,
+                      maxHeight: '330px',
+                      overflowY: 'auto',
+                      paddingRight: '6px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
                     {dashboardFilteredStats.inquiriesList.length > 0 ? (
-                      dashboardFilteredStats.inquiriesList.slice(0, 6).map((inq) => {
+                      dashboardFilteredStats.inquiriesList.map((inq) => {
                         const initials = inq.customer_name
                           .split(' ')
                           .map((n) => n[0])
@@ -2646,7 +2997,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                         return (
                           <div key={inq.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #f4f4f5' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                               <div style={{
                                 width: '38px',
                                 height: '38px',
@@ -2659,19 +3010,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 fontWeight: 700,
                                 fontSize: '12px',
                                 color: '#18181b',
+                                flexShrink: 0,
                               }}>
                                 {initials || 'CU'}
                               </div>
-                              <div>
-                                <div style={{ fontSize: '14px', fontWeight: 700, color: '#09090b' }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '14px', fontWeight: 700, color: '#09090b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {inq.customer_name}
                                 </div>
-                                <div style={{ fontSize: '11.5px', color: '#71717a' }}>
+                                <div style={{ fontSize: '11.5px', color: '#71717a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {inq.customer_email || inq.customer_phone} • {inq.created_at ? new Date(inq.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                                 </div>
                               </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
+                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
                               <div style={{ fontSize: '14px', fontWeight: 800, color: '#09090b' }}>
                                 +{formatPrice(inq.quoted_price || inq.painting?.price || 0)}
                               </div>
@@ -2792,6 +3144,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   >
                     <FileSpreadsheet size={15} color="#16a34a" />
                     <span>Export Catalog (.xlsx)</span>
+                  </button>
+
+                  {/* Edit Artwork Detail Tabs & Badges */}
+                  <button
+                    type="button"
+                    onClick={() => setShowArtworkTabsModal(true)}
+                    title="Configure Artwork Detail Tabs (Curatorial Note, Provenance & COA, Shipping) and Trust Badges"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      backgroundColor: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      color: '#1d4ed8',
+                      padding: '8px 14px',
+                      borderRadius: '4px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#dbeafe';
+                      e.currentTarget.style.borderColor = '#93c5fd';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#eff6ff';
+                      e.currentTarget.style.borderColor = '#bfdbfe';
+                    }}
+                  >
+                    <Award size={15} color="#2563eb" />
+                    <span>Artwork Tabs & Badges</span>
                   </button>
 
                   {/* + Add Product Button */}
@@ -3113,26 +3498,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     Direct CRM inquiries with 1-click WhatsApp messaging and status updates.
                   </p>
                 </div>
-                <select
-                  value={inquiryStatusFilter}
-                  onChange={(e) => setInquiryStatusFilter(e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '2px',
-                    backgroundColor: '#ffffff',
-                    color: '#000000',
-                    outline: 'none',
-                  }}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="new">Under Review (New)</option>
-                  <option value="contacted">Curator Contacted</option>
-                  <option value="confirmed">Confirmed / Paid</option>
-                  <option value="completed">Completed Delivery</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {/* WhatsApp Direct Inquiry Number Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempWhatsappNumber(footerConfig.social_links?.whatsapp || footerConfig.contact_phone || '');
+                      setShowWhatsappModal(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '7px 14px',
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #86efac',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#15803d',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title="Configure WhatsApp Concierge Number for customer direct inquiries"
+                  >
+                    <MessageCircle size={15} style={{ color: '#16a34a' }} />
+                    <span>WhatsApp Number: <strong style={{ color: '#14532d' }}>{footerConfig.social_links?.whatsapp || footerConfig.contact_phone || 'Not set'}</strong></span>
+                    <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', padding: '2px 7px', borderRadius: '3px', border: '1px solid #bbf7d0', marginLeft: '4px', color: '#166534' }}>
+                      Change Number
+                    </span>
+                  </button>
+
+                  <select
+                    value={inquiryStatusFilter}
+                    onChange={(e) => setInquiryStatusFilter(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '2px',
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="new">Under Review (New)</option>
+                    <option value="contacted">Curator Contacted</option>
+                    <option value="confirmed">Confirmed / Paid</option>
+                    <option value="completed">Completed Delivery</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
               </div>
 
               {/* Inquiries Table */}
@@ -5629,6 +6046,326 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     }}
                   />
                 </div>
+
+                {/* CARD 7: Artwork Product Page: Tabs & Trust Badges */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '2px',
+                  padding: '24px',
+                  gridColumn: '1 / -1',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                        7. Artwork Product Page: Information Tabs &amp; Trust Badges
+                      </h4>
+                      <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                        Customize headings, certificate &amp; provenance text, shipping statements, and the 3 trust badges displayed on all artwork product pages.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Form fields */}
+                  {(() => {
+                    const current = getArtworkTabs();
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                        {/* Tab 1: Description */}
+                        <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Layers size={15} color="#2563eb" /> Information Tab 1: Overview &amp; Curatorial Note
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                              Tab 1 Title / Heading
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab1_title || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab1_title', e.target.value)}
+                              placeholder="Curatorial Note"
+                              style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                            />
+                            <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px', display: 'block' }}>
+                              Note: This tab automatically presents the individual artwork's medium, dimensions, category, and curator description.
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Tab 2: Provenance & COA */}
+                        <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <ShieldCheck size={15} color="#16a34a" /> Information Tab 2: Provenance &amp; Authenticity (COA)
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                Tab 2 Title / Heading
+                              </label>
+                              <input
+                                type="text"
+                                value={current.tab2_title || ''}
+                                onChange={(e) => handleUpdateArtworkTab('tab2_title', e.target.value)}
+                                placeholder="Provenance & COA"
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                Statement / Introduction Text (Use <code>{'{artist}'}</code> to automatically insert the artwork's artist name)
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={current.tab2_intro || ''}
+                                onChange={(e) => handleUpdateArtworkTab('tab2_intro', e.target.value)}
+                                placeholder="Every acquisition from our gallery includes a registered, tamper-evident Certificate of Authenticity (COA) signed directly by {artist} and counter-stamped by our Chief Curator."
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                              />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 1
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab2_point1 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab2_point1', e.target.value)}
+                                  placeholder="Official gallery archive serial registration number"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 2
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab2_point2 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab2_point2', e.target.value)}
+                                  placeholder="Archival acid-free cotton certificate backing"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 3
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab2_point3 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab2_point3', e.target.value)}
+                                  placeholder="Guaranteed museum provenance with transfer of ownership"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tab 3: Shipping */}
+                        <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Truck size={15} color="#0284c7" /> Information Tab 3: White-Glove Shipping
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                Tab 3 Title / Heading
+                              </label>
+                              <input
+                                type="text"
+                                value={current.tab3_title || ''}
+                                onChange={(e) => handleUpdateArtworkTab('tab3_title', e.target.value)}
+                                placeholder="White-Glove Shipping"
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                Statement / Introduction Text
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={current.tab3_intro || ''}
+                                onChange={(e) => handleUpdateArtworkTab('tab3_intro', e.target.value)}
+                                placeholder="We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing."
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                              />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 1
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab3_point1 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab3_point1', e.target.value)}
+                                  placeholder="Complimentary insured door-to-door courier across India"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 2
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab3_point2 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab3_point2', e.target.value)}
+                                  placeholder="Estimated dispatch: 24 to 48 hours with live tracking"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                                  Bullet Point 3
+                                </label>
+                                <input
+                                  type="text"
+                                  value={current.tab3_point3 || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('tab3_point3', e.target.value)}
+                                  placeholder="Unboxing inspection and 14-day hassle-free returns"
+                                  style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Trust Badges */}
+                        <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Award size={15} color="#d97706" /> Product Page Trust Badges (3 Visual Cards)
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                            {/* Badge 1 */}
+                            <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                {renderAdminBadgeIcon(current.badge1_icon, 'shield')}
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 1</span>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                                <select
+                                  value={current.badge1_icon || 'shield-check'}
+                                  onChange={(e) => handleUpdateArtworkTab('badge1_icon', e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                                >
+                                  {BADGE_ICON_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                                <input
+                                  type="text"
+                                  value={current.badge1_title || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge1_title', e.target.value)}
+                                  placeholder="100% Authentic"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                                <input
+                                  type="text"
+                                  value={current.badge1_subtitle || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge1_subtitle', e.target.value)}
+                                  placeholder="Certificate included"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Badge 2 */}
+                            <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                {renderAdminBadgeIcon(current.badge2_icon, 'truck')}
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 2</span>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                                <select
+                                  value={current.badge2_icon || 'truck'}
+                                  onChange={(e) => handleUpdateArtworkTab('badge2_icon', e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                                >
+                                  {BADGE_ICON_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                                <input
+                                  type="text"
+                                  value={current.badge2_title || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge2_title', e.target.value)}
+                                  placeholder="Free Insured Transit"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                                <input
+                                  type="text"
+                                  value={current.badge2_subtitle || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge2_subtitle', e.target.value)}
+                                  placeholder="Reinforced art crating"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Badge 3 */}
+                            <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                {renderAdminBadgeIcon(current.badge3_icon, 'rotate')}
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 3</span>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                                <select
+                                  value={current.badge3_icon || 'rotate-ccw'}
+                                  onChange={(e) => handleUpdateArtworkTab('badge3_icon', e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                                >
+                                  {BADGE_ICON_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div style={{ marginBottom: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                                <input
+                                  type="text"
+                                  value={current.badge3_title || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge3_title', e.target.value)}
+                                  placeholder="14-Day In-Home Trial"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                                <input
+                                  type="text"
+                                  value={current.badge3_subtitle || ''}
+                                  onChange={(e) => handleUpdateArtworkTab('badge3_subtitle', e.target.value)}
+                                  placeholder="Satisfaction guarantee"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
               {/* CARD 7: Real-Time Live Preview */}
@@ -8019,6 +8756,576 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK WHATSAPP CONCIERGE NUMBER MODAL */}
+      {showWhatsappModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.55)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px',
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '6px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '26px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  backgroundColor: '#dcfce7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#16a34a',
+                }}>
+                  <MessageCircle size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    Configure WhatsApp Number
+                  </h3>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0 0' }}>
+                    Used for customer direct WhatsApp inquiries and order concierge
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWhatsappModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {whatsappSaveSuccess && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 14px',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontWeight: 600,
+                marginBottom: '16px',
+              }}>
+                <CheckCircle2 size={16} /> WhatsApp number updated successfully!
+              </div>
+            )}
+
+            <form onSubmit={handleSaveWhatsappNumber}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#374151', marginBottom: '6px' }}>
+                  WhatsApp Phone Number *
+                </label>
+                <input
+                  type="text"
+                  value={tempWhatsappNumber}
+                  onChange={(e) => setTempWhatsappNumber(e.target.value)}
+                  placeholder="e.g. +91 98765 43210 or 919876543210"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    border: '1.5px solid #d1d5db',
+                    borderRadius: '4px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    fontWeight: 500,
+                  }}
+                  autoFocus
+                />
+                <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px', lineHeight: '1.4' }}>
+                  💡 Include country code (e.g. <code>+91</code> for India). When visitors click <strong>"Direct Inquiry on WhatsApp"</strong> on any artwork page, it will open WhatsApp with this phone number directly.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '14px', borderTop: '1px solid #f3f4f6' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowWhatsappModal(false)}
+                  style={{
+                    padding: '9px 18px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    color: '#374151',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingWhatsapp}
+                  style={{
+                    padding: '9px 22px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    backgroundColor: '#16a34a',
+                    border: '1px solid #16a34a',
+                    borderRadius: '4px',
+                    color: '#ffffff',
+                    cursor: isSavingWhatsapp ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {isSavingWhatsapp ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    'Save WhatsApp Number'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: EDIT ARTWORK TABS & TRUST BADGES */}
+      {showArtworkTabsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '6px',
+            maxWidth: '840px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '20px 24px',
+              borderBottom: '1px solid #e5e7eb',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#eff6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#2563eb',
+                }}>
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#000000', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    Configure Artwork Detail Tabs &amp; Badges
+                  </h3>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0 0' }}>
+                    Edit the headings, COA certificate info, shipping terms, and trust badges on all product detail pages
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowArtworkTabsModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+              {(() => {
+                const current = getArtworkTabs();
+                return (
+                  <form onSubmit={handleSaveArtworkTabs} id="artwork-tabs-modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Tab 1 */}
+                    <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Layers size={15} color="#2563eb" /> Information Tab 1: Overview &amp; Curatorial Note
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                          Tab 1 Title / Heading
+                        </label>
+                        <input
+                          type="text"
+                          value={current.tab1_title || ''}
+                          onChange={(e) => handleUpdateArtworkTab('tab1_title', e.target.value)}
+                          placeholder="Curatorial Note"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                        />
+                        <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px', display: 'block' }}>
+                          Note: This tab automatically presents the individual artwork's medium, dimensions, category, and curator description.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tab 2 */}
+                    <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ShieldCheck size={15} color="#16a34a" /> Information Tab 2: Provenance &amp; Authenticity (COA)
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                            Tab 2 Title / Heading
+                          </label>
+                          <input
+                            type="text"
+                            value={current.tab2_title || ''}
+                            onChange={(e) => handleUpdateArtworkTab('tab2_title', e.target.value)}
+                            placeholder="Provenance & COA"
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                            Statement / Introduction Text (Use <code>{'{artist}'}</code> to automatically insert the artwork's artist name)
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={current.tab2_intro || ''}
+                            onChange={(e) => handleUpdateArtworkTab('tab2_intro', e.target.value)}
+                            placeholder="Every acquisition from our gallery includes a registered, tamper-evident Certificate of Authenticity (COA) signed directly by {artist} and counter-stamped by our Chief Curator."
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 1
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab2_point1 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab2_point1', e.target.value)}
+                              placeholder="Official gallery archive serial registration number"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 2
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab2_point2 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab2_point2', e.target.value)}
+                              placeholder="Archival acid-free cotton certificate backing"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 3
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab2_point3 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab2_point3', e.target.value)}
+                              placeholder="Guaranteed museum provenance with transfer of ownership"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tab 3 */}
+                    <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Truck size={15} color="#0284c7" /> Information Tab 3: White-Glove Shipping
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                            Tab 3 Title / Heading
+                          </label>
+                          <input
+                            type="text"
+                            value={current.tab3_title || ''}
+                            onChange={(e) => handleUpdateArtworkTab('tab3_title', e.target.value)}
+                            placeholder="White-Glove Shipping"
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>
+                            Statement / Introduction Text
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={current.tab3_intro || ''}
+                            onChange={(e) => handleUpdateArtworkTab('tab3_intro', e.target.value)}
+                            placeholder="We ensure museum-grade protective packaging using shock-absorbing archival foam and custom wood casing."
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 1
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab3_point1 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab3_point1', e.target.value)}
+                              placeholder="Complimentary insured door-to-door courier across India"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 2
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab3_point2 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab3_point2', e.target.value)}
+                              placeholder="Estimated dispatch: 24 to 48 hours with live tracking"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '3px' }}>
+                              Bullet Point 3
+                            </label>
+                            <input
+                              type="text"
+                              value={current.tab3_point3 || ''}
+                              onChange={(e) => handleUpdateArtworkTab('tab3_point3', e.target.value)}
+                              placeholder="Unboxing inspection and 14-day hassle-free returns"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Trust Badges */}
+                    <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Award size={15} color="#d97706" /> Product Page Trust Badges (3 Visual Cards)
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                        {/* Badge 1 */}
+                        <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            {renderAdminBadgeIcon(current.badge1_icon, 'shield')}
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 1</span>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                            <select
+                              value={current.badge1_icon || 'shield-check'}
+                              onChange={(e) => handleUpdateArtworkTab('badge1_icon', e.target.value)}
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                            >
+                              {BADGE_ICON_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                            <input
+                              type="text"
+                              value={current.badge1_title || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge1_title', e.target.value)}
+                              placeholder="100% Authentic"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                            <input
+                              type="text"
+                              value={current.badge1_subtitle || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge1_subtitle', e.target.value)}
+                              placeholder="Certificate included"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Badge 2 */}
+                        <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            {renderAdminBadgeIcon(current.badge2_icon, 'truck')}
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 2</span>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                            <select
+                              value={current.badge2_icon || 'truck'}
+                              onChange={(e) => handleUpdateArtworkTab('badge2_icon', e.target.value)}
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                            >
+                              {BADGE_ICON_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                            <input
+                              type="text"
+                              value={current.badge2_title || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge2_title', e.target.value)}
+                              placeholder="Free Insured Transit"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                            <input
+                              type="text"
+                              value={current.badge2_subtitle || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge2_subtitle', e.target.value)}
+                              placeholder="Reinforced art crating"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Badge 3 */}
+                        <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            {renderAdminBadgeIcon(current.badge3_icon, 'rotate')}
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Badge 3</span>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Icon</label>
+                            <select
+                              value={current.badge3_icon || 'rotate-ccw'}
+                              onChange={(e) => handleUpdateArtworkTab('badge3_icon', e.target.value)}
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                            >
+                              {BADGE_ICON_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Title</label>
+                            <input
+                              type="text"
+                              value={current.badge3_title || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge3_title', e.target.value)}
+                              placeholder="14-Day In-Home Trial"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Subtitle</label>
+                            <input
+                              type="text"
+                              value={current.badge3_subtitle || ''}
+                              onChange={(e) => handleUpdateArtworkTab('badge3_subtitle', e.target.value)}
+                              placeholder="Satisfaction guarantee"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: '2px', border: '1px solid #d1d5db', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px',
+              padding: '16px 24px',
+              borderTop: '1px solid #e5e7eb',
+              backgroundColor: '#f9fafb',
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowArtworkTabsModal(false)}
+                style={{
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  color: '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveArtworkTabs()}
+                disabled={isSavingFooter}
+                style={{
+                  padding: '9px 24px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  backgroundColor: '#000000',
+                  border: '1px solid #000000',
+                  borderRadius: '4px',
+                  color: '#ffffff',
+                  cursor: isSavingFooter ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {isSavingFooter ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" /> Saving Changes...
+                  </>
+                ) : (
+                  'Save Artwork Tabs & Badges'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

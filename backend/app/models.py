@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Text, Numeric, Boolean,
@@ -56,6 +57,7 @@ class Painting(Base):
     __tablename__ = "paintings"
 
     id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, index=True, default=lambda: str(uuid.uuid4()))
     title = Column(String(200), nullable=False, index=True)
     artist_name = Column(String(120), nullable=False, default="Master Artist")
     description = Column(Text, nullable=False)

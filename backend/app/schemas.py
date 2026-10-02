@@ -141,6 +141,7 @@ class PaintingUpdate(BaseModel):
 
 class PaintingResponse(PaintingBase):
     id: int
+    uuid: Optional[str] = None
     views_count: int
     created_at: datetime
     updated_at: datetime

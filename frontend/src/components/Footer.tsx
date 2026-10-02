@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Category, FooterConfig } from '../types';
 import { api } from '../services/api';
 import {
@@ -27,7 +28,14 @@ export const Footer: React.FC<FooterProps> = ({
   onSelectCategory,
   config: initialConfig,
 }) => {
-  const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(initialConfig || null);
+  const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(() => {
+    if (initialConfig) return initialConfig;
+    try {
+      const cached = localStorage.getItem('artweb_footer_config');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return null;
+  });
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
 
@@ -36,7 +44,14 @@ export const Footer: React.FC<FooterProps> = ({
       setFooterConfig(initialConfig);
     } else {
       api.getFooterConfig()
-        .then((data) => setFooterConfig(data))
+        .then((data) => {
+          if (data) {
+            setFooterConfig(data);
+            try {
+              localStorage.setItem('artweb_footer_config', JSON.stringify(data));
+            } catch (e) {}
+          }
+        })
         .catch((err) => console.error('Error loading footer config:', err));
     }
   }, [initialConfig]);
@@ -49,15 +64,14 @@ export const Footer: React.FC<FooterProps> = ({
     setTimeout(() => setNewsletterSubscribed(false), 5000);
   };
 
-  const brandName = footerConfig?.brand_name || 'Minimog';
-  const brandSubtitle = footerConfig?.brand_subtitle || 'Shopify Store';
-  const brandDescription = footerConfig?.brand_description ||
-    'Quality products, unmatched style, and exceptional customer service. Transforming modern lifestyle spaces one curated piece at a time.';
+  const brandName = footerConfig?.brand_name || '';
+  const brandSubtitle = footerConfig?.brand_subtitle || '';
+  const brandDescription = footerConfig?.brand_description || '';
   const studioLocation = footerConfig?.studio_location || '';
   const contactPhone = footerConfig?.contact_phone || '';
   const contactEmail = footerConfig?.contact_email || '';
   const copyrightText = footerConfig?.copyright_text ||
-    `© ${new Date().getFullYear()} Minimog Store. Powered by Minimog Shopify. All rights reserved.`;
+    (brandName ? `© ${new Date().getFullYear()} ${brandName}. All rights reserved.` : '');
 
   const maxCategories = footerConfig?.max_categories_to_show ?? 6;
   const displayedCategories = categories.slice(0, maxCategories);
@@ -252,20 +266,20 @@ export const Footer: React.FC<FooterProps> = ({
             {displayedCategories.length > 0 ? (
               displayedCategories.map((cat) => (
                 <li key={cat.id}>
-                  <a
-                    href="#gallery-catalog"
-                    onClick={(e) => {
+                  <Link
+                    to={`/collections/${cat.slug || cat.id}`}
+                    onClick={() => {
                       if (onSelectCategory) {
-                        e.preventDefault();
                         onSelectCategory(cat.id);
                       }
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     style={{ color: '#4b5563', textDecoration: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}
                   >
                     {cat.name}
-                  </a>
+                  </Link>
                 </li>
               ))
             ) : (
