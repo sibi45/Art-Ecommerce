@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -17,9 +17,7 @@ import {
   Package,
   ExternalLink,
   Menu,
-  Truck,
-  ShieldCheck,
-  Star
+  UserCheck
 } from 'lucide-react';
 
 const PORTFOLIO_URL = import.meta.env.VITE_PORTFOLIO_URL || 'https://your-portfolio.com';
@@ -51,6 +49,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [sections, setSections] = useState<ProductSection[]>([]);
   const [footerConfig, setFooterConfig] = useState<FooterConfig | null>(null);
 
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  // Close account popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setIsAccountOpen(false);
+      }
+    };
+    if (isAccountOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAccountOpen]);
+
   useEffect(() => {
     api.getSections().then((data) => setSections(data || [])).catch(() => {});
     api.getFooterConfig().then((data) => setFooterConfig(data || null)).catch(() => {});
@@ -75,56 +90,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       backgroundColor: '#ffffff',
       fontFamily: "'Roboto Condensed', sans-serif"
     }}>
-      {/* 1. Top Announcement Bar (Minimog Style) */}
-      <div style={{
-        backgroundColor: '#1b3b2b',
-        color: '#ffffff',
-        fontSize: '12.5px',
-        fontWeight: 500,
-        padding: '7px 20px',
-        letterSpacing: '0.02em',
-      }}>
-        <div style={{
-          maxWidth: '1380px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Truck size={14} color="#a7f3d0" />
-            <span>Free Shipping on Orders Over ₹999</span>
-          </div>
-
-          <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ShieldCheck size={14} color="#a7f3d0" />
-            <span>30-Day Money Back Guarantee</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Star size={13} fill="#fbbf24" color="#fbbf24" />
-            <span>Excellent 4.9 out of 5 Rating</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Main Navbar Bar */}
+      {/* Main Navbar Bar */}
       <div style={{
         borderBottom: '1px solid #e5e7eb',
         boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
         backgroundColor: '#ffffff'
       }}>
-        <div style={{
-          maxWidth: '1380px',
-          margin: '0 auto',
-          padding: '14px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '24px'
-        }}>
+        <div
+          className="navbar-container"
+          style={{
+            maxWidth: '1380px',
+            margin: '0 auto',
+            padding: '14px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '24px'
+          }}
+        >
           {/* Left: Brand Logo (Minimog Style with Green Icon) */}
           <Link
             to="/home"
@@ -159,14 +142,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}>
                 {footerConfig?.brand_name || 'Minimog'}
               </div>
-              <div style={{
-                fontSize: '10px',
-                fontWeight: 600,
-                color: '#6b7280',
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                marginTop: '1px'
-              }}>
+              <div
+                className="brand-subtitle-mobile"
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: '#6b7280',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  marginTop: '1px',
+                  maxWidth: '180px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {footerConfig?.brand_subtitle || 'Curated Store'}
               </div>
             </div>
@@ -386,40 +376,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Dynamic Store Section Links from Database */}
-            {sections && sections.filter(s => s.is_active).length > 0 ? (
-              sections.filter(s => s.is_active).slice(0, 2).map((sec) => (
-                <Link
-                  key={sec.id}
-                  to={`/shop?section=${sec.slug}`}
-                  style={{
-                    textDecoration: 'none',
-                    color: '#374151',
-                    transition: 'color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#374151')}
-                >
-                  {sec.name}
-                </Link>
-              ))
-            ) : categories && categories.length > 0 ? (
-              categories.slice(0, 2).map((cat) => (
-                <Link
-                  key={cat.id}
-                  to={`/shop?category=${cat.id}`}
-                  style={{
-                    textDecoration: 'none',
-                    color: '#374151',
-                    transition: 'color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#374151')}
-                >
-                  {cat.name}
-                </Link>
-              ))
-            ) : null}
+            {/* My Portfolio Link */}
+            <a
+              href={PORTFOLIO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                textDecoration: 'none',
+                color: '#374151',
+                fontSize: '15px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#374151')}
+            >
+              My Portfolio <ExternalLink size={13} style={{ opacity: 0.7 }} />
+            </a>
 
             <Link
               to="/orders"
@@ -436,7 +412,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right: Search, Account, Wishlist, Cart Icons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+          <div className="navbar-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             {/* Search Input / Icon */}
             <div style={{ position: 'relative' }}>
               {isSearchOpen ? (
@@ -543,7 +519,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </Link>
 
             {/* Account Profile Icon (Minimog Style) */}
-            <div style={{ position: 'relative' }}>
+            <div ref={accountRef} style={{ position: 'relative' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -558,11 +534,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#111827',
+                  color: isAccountOpen ? '#1b3b2b' : '#111827',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '4px',
+                  borderRadius: '4px',
+                  transition: 'color 0.15s ease',
                 }}
               >
                 <UserIcon size={20} strokeWidth={2} />
@@ -574,26 +552,69 @@ export const Navbar: React.FC<NavbarProps> = ({
                   position: 'absolute',
                   top: 'calc(100% + 12px)',
                   right: 0,
-                  width: '210px',
+                  width: '230px',
                   backgroundColor: '#ffffff',
                   border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
+                  borderRadius: '8px',
+                  boxShadow: '0 12px 28px rgba(0,0,0,0.1)',
                   padding: '8px 0',
-                  zIndex: 200,
+                  zIndex: 300,
+                  animation: 'fadeIn 0.15s ease-out',
                 }}>
-                  <div style={{ padding: '8px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{user?.full_name}</div>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email}</div>
-                  </div>
+                  {/* User Profile Summary Card */}
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsAccountOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid #f3f4f6',
+                      textDecoration: 'none',
+                      backgroundColor: '#fbfbfa',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fbfbfa')}
+                  >
+                    <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#111827' }}>
+                      {user?.full_name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user?.email}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#1b3b2b', fontWeight: 700, marginTop: '4px' }}>
+                      View & Edit Profile →
+                    </div>
+                  </Link>
 
+                  {/* My Profile Link */}
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsAccountOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 16px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <UserIcon size={15} color="#4b5563" /> My Profile
+                  </Link>
+
+                  {/* My Orders Link */}
                   <Link
                     to="/orders"
                     onClick={() => setIsAccountOpen(false)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
+                      gap: '10px',
                       padding: '9px 16px',
                       fontSize: '13px',
                       color: '#374151',
@@ -603,7 +624,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <ClipboardList size={15} /> My Orders
+                    <ClipboardList size={15} color="#4b5563" /> My Orders
+                  </Link>
+
+                  {/* My Wishlist Link */}
+                  <Link
+                    to="/wishlist"
+                    onClick={() => setIsAccountOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 16px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <Heart size={15} color="#4b5563" /> My Wishlist
                   </Link>
 
                   {isAdmin && (
@@ -613,7 +654,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '10px',
                         padding: '9px 16px',
                         fontSize: '13px',
                         color: '#1b3b2b',
@@ -623,12 +664,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0fdf4')}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
-                      <LayoutDashboard size={15} /> Admin Dashboard
+                      <LayoutDashboard size={15} color="#1b3b2b" /> Admin Dashboard
                     </Link>
                   )}
 
                   <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '4px' }}>
                     <button
+                      type="button"
                       onClick={() => {
                         setIsAccountOpen(false);
                         logout();
@@ -638,19 +680,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                         textAlign: 'left',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '10px',
                         padding: '9px 16px',
                         fontSize: '13px',
-                        color: '#6b7280',
+                        color: '#dc2626',
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
                         fontFamily: 'inherit',
+                        fontWeight: 600,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fef2f2')}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
-                      <LogOut size={15} /> Log Out
+                      <LogOut size={15} color="#dc2626" /> Log Out
                     </button>
                   </div>
                 </div>
@@ -803,23 +846,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               Collections
             </Link>
 
-            {sections && sections.filter(s => s.is_active).map((sec) => (
-              <Link
-                key={`mobile-sec-${sec.id}`}
-                to={`/shop?section=${sec.slug}`}
-                onClick={() => setIsMobileMenuOpen(false)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '4px',
-                  color: '#4b5563',
-                  textDecoration: 'none',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                }}
-              >
-                &mdash; {sec.name}
-              </Link>
-            ))}
 
             {categories.map((cat) => (
               <Link
@@ -892,7 +918,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 fontSize: '14px',
               }}
             >
-              <ExternalLink size={16} /> About Us
+              <ExternalLink size={16} /> My Portfolio
             </a>
 
             {isAdmin && (
@@ -919,10 +945,57 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '8px 0' }} />
 
             {isAuthenticated ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', backgroundColor: '#f9fafb', borderRadius: '4px' }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '13px', color: '#111827' }}>{user?.full_name}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email}</div>
+              <div style={{ backgroundColor: '#f9fafb', borderRadius: '8px', padding: '12px', border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#111827' }}>{user?.full_name}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email}</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#166534', backgroundColor: '#dcfce7', padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase' }}>
+                    {user?.role === 'admin' ? 'Admin' : 'Customer'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      color: '#111827',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <UserIcon size={14} /> My Profile
+                  </Link>
+                  <Link
+                    to="/orders"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      color: '#111827',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Package size={14} /> Orders
+                  </Link>
                 </div>
                 <button
                   type="button"
@@ -931,18 +1004,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                     logout();
                   }}
                   style={{
+                    width: '100%',
                     background: '#ffffff',
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid #fecaca',
                     borderRadius: '4px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
+                    padding: '8px',
+                    fontSize: '12.5px',
                     fontWeight: 600,
-                    color: '#111827',
+                    color: '#dc2626',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
                   }}
                 >
-                  Log Out
+                  <LogOut size={14} /> Sign Out
                 </button>
               </div>
             ) : (

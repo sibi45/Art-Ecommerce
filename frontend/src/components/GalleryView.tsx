@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { Painting, Category, ProductSection, Testimonial, Banner, ShowcaseItem } from '../types';
-import { api } from '../services/api';
+import { api, getImageUrl } from '../services/api';
 import { PaintingCard } from './PaintingCard';
 import {
   Truck,
@@ -84,10 +84,10 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
       const [paintingsData, categoriesData, sectionsData, testimonialsData, bannersData, showcaseData] = await Promise.all([
         api.getPaintings(),
         api.getCategories(),
-        api.getSections(),
-        api.getTestimonials(),
-        api.getBanners(),
-        api.getShowcaseItems(),
+        api.getSections().catch(() => []),
+        api.getTestimonials().catch(() => []),
+        api.getBanners().catch(() => []),
+        api.getShowcaseItems().catch(() => []),
       ]);
       setPaintings(paintingsData);
       setCategories(categoriesData);
@@ -243,7 +243,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           {categories.map((cat) => {
             const samplePainting = paintings.find((p) => p.category_id === cat.id);
             const isSelected = selectedCategoryId === cat.id;
-            const imgSrc = cat.image_url || samplePainting?.image_url || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300';
+            const imgSrc = getImageUrl(cat.image_url) || getImageUrl(samplePainting?.image_url) || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300';
 
             return (
               <div
@@ -311,7 +311,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
 
       {/* 2. Scrolling Showcase Marquee */}
       {!isFiltering && repeatedPromoImages.length > 0 && (
-        <section style={{ maxWidth: '1380px', margin: '16px auto 36px', padding: '0 24px' }}>
+        <section style={{ maxWidth: '1380px', margin: '48px auto 60px', padding: '0 24px' }}>
           <div
             className="promo-scroll-container"
             style={{
@@ -341,7 +341,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   }}
                 >
                   <img
-                    src={promo.image_url}
+                    src={getImageUrl(promo.image_url)}
                     alt={promo.title || 'Promotional Banner'}
                     loading="lazy"
                     style={{

@@ -9,6 +9,7 @@ import { GalleryView } from './components/GalleryView';
 import { CartScreen } from './components/CartScreen';
 import { WishlistScreen } from './components/WishlistScreen';
 import { OrdersScreen } from './components/OrdersScreen';
+import { ProfileScreen } from './components/ProfileScreen';
 import { ArtworkOrderPage } from './components/ArtworkOrderPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PaintingDetailModal } from './components/PaintingDetailModal';
@@ -342,6 +343,22 @@ const MainAppRoutes: React.FC = () => {
               categories={categories}
             >
               <OrdersScreen onOpenAuth={() => setIsAuthOpen(true)} />
+            </CustomerLayout>
+          }
+        />
+
+        {/* Customer Profile & Account Route */}
+        <Route
+          path="/profile"
+          element={
+            <CustomerLayout
+              cartCount={cartItems.length}
+              cartTotal={cartTotal}
+              onOpenAuth={() => setIsAuthOpen(true)}
+              onOpenMyInquiries={() => setIsMyInquiriesOpen(true)}
+              categories={categories}
+            >
+              <ProfileScreen onOpenAuth={() => setIsAuthOpen(true)} />
             </CustomerLayout>
           }
         />

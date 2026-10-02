@@ -15,6 +15,13 @@ interface FooterProps {
   config?: FooterConfig;
 }
 
+const getWhatsAppUrl = (val?: string) => {
+  if (!val) return 'https://wa.me/';
+  if (val.startsWith('http://') || val.startsWith('https://')) return val;
+  const cleanNumber = val.replace(/[^0-9]/g, '');
+  return `https://wa.me/${cleanNumber}`;
+};
+
 export const Footer: React.FC<FooterProps> = ({
   categories = [],
   onSelectCategory,
@@ -57,9 +64,9 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer id="site-footer" style={{
-      backgroundColor: '#ffffff',
+      backgroundColor: '#f3f2ee',
       color: '#4b5563',
-      borderTop: '1px solid #e5e7eb',
+      borderTop: '1px solid #e5e3dc',
       padding: '64px 24px 32px',
       fontFamily: "'Roboto Condensed', sans-serif",
     }}>
@@ -134,66 +141,112 @@ export const Footer: React.FC<FooterProps> = ({
           )}
 
           {/* Social Links */}
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <a href="#facebook" aria-label="Facebook" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
-               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
-               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <a
+              href={footerConfig?.social_links?.facebook || 'https://facebook.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#ffffff', border: '1px solid #e5e3dc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#1b3b2b'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.color = '#4b5563'; e.currentTarget.style.borderColor = '#e5e3dc'; }}
+            >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
             </a>
-            <a href="#instagram" aria-label="Instagram" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
-               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
-               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
+            <a
+              href={footerConfig?.social_links?.instagram || 'https://instagram.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#ffffff', border: '1px solid #e5e3dc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#1b3b2b'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.color = '#4b5563'; e.currentTarget.style.borderColor = '#e5e3dc'; }}
+            >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
             </a>
-            <a href="#twitter" aria-label="Twitter" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
-               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; }}
-               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#4b5563'; }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>
+            <a
+              href={footerConfig?.social_links?.twitter || 'https://twitter.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Twitter"
+              style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#ffffff', border: '1px solid #e5e3dc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#1b3b2b'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.color = '#4b5563'; e.currentTarget.style.borderColor = '#e5e3dc'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+            </a>
+            <a
+              href={getWhatsAppUrl(footerConfig?.social_links?.whatsapp || footerConfig?.contact_phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp"
+              style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#ffffff', border: '1px solid #e5e3dc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', textDecoration: 'none', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1b3b2b'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#1b3b2b'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.color = '#4b5563'; e.currentTarget.style.borderColor = '#e5e3dc'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
             </a>
           </div>
         </div>
 
-        {/* Shop Column */}
+        {/* Shop / Curated Links Column */}
         <div>
           <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
-            Shop
+            {footerConfig?.custom_column_title || 'Shop'}
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li>
-              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                All Products
-              </a>
-            </li>
-            <li>
-              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Best Sellers
-              </a>
-            </li>
-            <li>
-              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                New Arrivals
-              </a>
-            </li>
-            <li>
-              <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Gift Cards
-              </a>
-            </li>
+            {footerConfig?.custom_links && footerConfig.custom_links.length > 0 ? (
+              footerConfig.custom_links.map((link, idx) => (
+                <li key={idx}>
+                  <a
+                    href={link.url || '#gallery-catalog'}
+                    style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}
+                  >
+                    {link.title}
+                  </a>
+                </li>
+              ))
+            ) : (
+              <>
+                <li>
+                  <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                     onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                     onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                    All Artworks
+                  </a>
+                </li>
+                <li>
+                  <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                     onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                     onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                    Best Sellers
+                  </a>
+                </li>
+                <li>
+                  <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                     onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                     onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                    New Arrivals
+                  </a>
+                </li>
+                <li>
+                  <a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
+                     onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
+                     onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
+                    Featured Collection
+                  </a>
+                </li>
+              </>
+            )}
           </ul>
         </div>
 
         {/* Collections Column */}
         <div>
           <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
-            Collections
+            {footerConfig?.categories_title || 'Collections'}
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {displayedCategories.length > 0 ? (
@@ -217,173 +270,282 @@ export const Footer: React.FC<FooterProps> = ({
               ))
             ) : (
               <>
-                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Men's Fashion</a></li>
-                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Women's Fashion</a></li>
-                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Footwear</a></li>
-                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Accessories</a></li>
-                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Home & Living</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Oil Paintings</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Canvas Art</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Modern & Abstract</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Portraits</a></li>
+                <li><a href="#gallery-catalog" style={{ color: '#4b5563', textDecoration: 'none' }}>Fine Art Prints</a></li>
               </>
             )}
           </ul>
         </div>
 
-        {/* Customer Service Column */}
+        {/* Connect With Us / Social Media Column (Replaces Customer Service & Company) */}
         <div>
           <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
-            Customer Service
+            {footerConfig?.social_links?.section_title || 'Connect With Us'}
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li>
-              <a href="#contact" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Contact Us
-              </a>
-            </li>
-            <li>
-              <a href="#faq" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                FAQs
-              </a>
-            </li>
-            <li>
-              <a href="#shipping" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Shipping Policy
-              </a>
-            </li>
-            <li>
-              <a href="#returns" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Return Policy
-              </a>
-            </li>
-            <li>
-              <a href="#track-order" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Track Your Order
-              </a>
-            </li>
-          </ul>
-        </div>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+            Follow our studio for latest artwork releases, bespoke exhibitions, and creative updates.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Instagram */}
+            <a
+              href={footerConfig?.social_links?.instagram || 'https://instagram.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#374151',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e3dc',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1b3b2b';
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.borderColor = '#1b3b2b';
+                e.currentTarget.style.transform = 'translateX(4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = '#374151';
+                e.currentTarget.style.borderColor = '#e5e3dc';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                </svg>
+              </span>
+              <span>Instagram</span>
+            </a>
 
-        {/* Company Column */}
-        <div>
-          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
-            Company
-          </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li>
-              <a href="#about" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                About Us
-              </a>
-            </li>
-            <li>
-              <a href="#blog" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Our Blog
-              </a>
-            </li>
-            <li>
-              <a href="#careers" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Careers
-              </a>
-            </li>
-            <li>
-              <a href="#privacy" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Privacy Policy
-              </a>
-            </li>
-            <li>
-              <a href="#terms" style={{ color: '#4b5563', textDecoration: 'none', transition: 'color 0.2s' }}
-                 onMouseEnter={(e) => (e.currentTarget.style.color = '#1b3b2b')}
-                 onMouseLeave={(e) => (e.currentTarget.style.color = '#4b5563')}>
-                Terms of Service
-              </a>
-            </li>
-          </ul>
-        </div>
+            {/* Facebook */}
+            <a
+              href={footerConfig?.social_links?.facebook || 'https://facebook.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#374151',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e3dc',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1b3b2b';
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.borderColor = '#1b3b2b';
+                e.currentTarget.style.transform = 'translateX(4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = '#374151';
+                e.currentTarget.style.borderColor = '#e5e3dc';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                </svg>
+              </span>
+              <span>Facebook</span>
+            </a>
 
-        {/* Payment Methods */}
-        <div>
-          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '16px' }}>
-            Payment Methods
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#1e3a8a', border: '1px solid #e5e7eb' }}>
-              VISA
-            </span>
-            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#ea580c', border: '1px solid #e5e7eb' }}>
-              Mastercard
-            </span>
-            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#0284c7', border: '1px solid #e5e7eb' }}>
-              PayPal
-            </span>
-            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#111827', border: '1px solid #e5e7eb' }}>
-               Pay
-            </span>
-            <span style={{ padding: '4px 10px', backgroundColor: '#f3f4f6', borderRadius: '4px', fontSize: '12px', fontWeight: 700, color: '#059669', border: '1px solid #e5e7eb' }}>
-              UPI / NetBanking
-            </span>
-          </div>
+            {/* WhatsApp */}
+            <a
+              href={getWhatsAppUrl(footerConfig?.social_links?.whatsapp || footerConfig?.contact_phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#374151',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e3dc',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1b3b2b';
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.borderColor = '#1b3b2b';
+                e.currentTarget.style.transform = 'translateX(4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = '#374151';
+                e.currentTarget.style.borderColor = '#e5e3dc';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+              </span>
+              <span>WhatsApp Concierge</span>
+            </a>
 
-          {/* Quick Newsletter in footer */}
-          <div style={{ marginTop: '24px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
-              Subscribe for 10% Off
-            </div>
-            {newsletterSubscribed ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
-                <CheckCircle2 size={14} /> Subscribed!
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} style={{ display: 'flex', maxWidth: '240px' }}>
-                <input
-                  type="email"
-                  required
-                  placeholder="Enter email"
-                  value={newsletterEmail}
-                  onChange={(e) => setNewsletterEmail(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    fontSize: '12px',
-                    border: '1px solid #d1d5db',
-                    borderRight: 'none',
-                    borderRadius: '4px 0 0 4px',
-                    outline: 'none',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <button
-                  type="submit"
-                  style={{
-                    backgroundColor: '#1b3b2b',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    borderRadius: '0 4px 4px 0',
-                    cursor: 'pointer',
-                    fontWeight: 600
-                  }}
-                >
-                  Join
-                </button>
-              </form>
+            {/* Twitter / X */}
+            <a
+              href={footerConfig?.social_links?.twitter || 'https://twitter.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#374151',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '7px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e3dc',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1b3b2b';
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.borderColor = '#1b3b2b';
+                e.currentTarget.style.transform = 'translateX(4px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = '#374151';
+                e.currentTarget.style.borderColor = '#e5e3dc';
+                e.currentTarget.style.transform = 'translateX(0)';
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </span>
+              <span>Twitter / X</span>
+            </a>
+
+            {/* YouTube */}
+            {Boolean(footerConfig?.social_links?.youtube) && (
+              <a
+                href={footerConfig?.social_links?.youtube || 'https://youtube.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#374151',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '7px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e3dc',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1b3b2b';
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.borderColor = '#1b3b2b';
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.color = '#374151';
+                  e.currentTarget.style.borderColor = '#e5e3dc';
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px' }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/>
+                    <polygon points="10 15 15 12 10 9 10 15" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span>YouTube</span>
+              </a>
             )}
           </div>
+        </div>
+
+        {/* Newsletter Column */}
+        <div>
+          <div style={{ color: '#111827', fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>
+            {footerConfig?.newsletter_title || 'Subscribe for 10% Off'}
+          </div>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+            {footerConfig?.newsletter_description || 'Subscribe for special artwork previews, curated collections, and exclusive private offers.'}
+          </p>
+          {newsletterSubscribed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>
+              <CheckCircle2 size={15} /> Subscribed successfully!
+            </div>
+          ) : (
+            <form onSubmit={handleSubscribe} style={{ display: 'flex', maxWidth: '280px' }}>
+              <input
+                type="email"
+                required
+                placeholder={footerConfig?.newsletter_placeholder || 'Enter your email'}
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  border: '1px solid #d5d3cb',
+                  borderRight: 'none',
+                  borderRadius: '4px 0 0 4px',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  backgroundColor: '#ffffff',
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  backgroundColor: '#1b3b2b',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  borderRadius: '0 4px 4px 0',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Join
+              </button>
+            </form>
+          )}
         </div>
       </div>
 
@@ -392,7 +554,7 @@ export const Footer: React.FC<FooterProps> = ({
         maxWidth: '1280px',
         margin: '0 auto',
         paddingTop: '24px',
-        borderTop: '1px solid #f3f4f6',
+        borderTop: '1px solid #e5e3dc',
         display: 'flex',
         flexWrap: 'wrap',
         justifyContent: 'space-between',

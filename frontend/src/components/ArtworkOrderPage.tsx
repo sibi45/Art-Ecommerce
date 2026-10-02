@@ -604,48 +604,6 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
               );
             })()}
 
-            <div className="responsive-3col-grid" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '12px',
-              marginTop: '16px',
-            }}>
-              <div style={{
-                padding: '14px',
-                border: '1px solid #f1f5f9',
-                borderRadius: '8px',
-                backgroundColor: '#fafafa',
-                textAlign: 'center',
-              }}>
-                <ShieldCheck size={20} color="#059669" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>100% Authentic</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Certificate included</div>
-              </div>
-
-              <div style={{
-                padding: '14px',
-                border: '1px solid #f1f5f9',
-                borderRadius: '8px',
-                backgroundColor: '#fafafa',
-                textAlign: 'center',
-              }}>
-                <Truck size={20} color="#0284c7" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Free Insured Transit</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Reinforced art crating</div>
-              </div>
-
-              <div style={{
-                padding: '14px',
-                border: '1px solid #f1f5f9',
-                borderRadius: '8px',
-                backgroundColor: '#fafafa',
-                textAlign: 'center',
-              }}>
-                <RotateCcw size={20} color="#d97706" style={{ margin: '0 auto 6px' }} />
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>14-Day In-Home Trial</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>Satisfaction guarantee</div>
-              </div>
-            </div>
           </div>
 
           {/* RIGHT: Global Standard Artwork Details & Direct Order Section */}
@@ -1222,6 +1180,50 @@ export const ArtworkOrderPage: React.FC<ArtworkOrderPageProps> = ({
                   </ul>
                 </div>
               )}
+            </div>
+
+            {/* Trust Badges - Positioned below order form & information tabs */}
+            <div className="responsive-3col-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '12px',
+              marginTop: '24px',
+            }}>
+              <div style={{
+                padding: '14px',
+                border: '1px solid #f1f5f9',
+                borderRadius: '8px',
+                backgroundColor: '#fafafa',
+                textAlign: 'center',
+              }}>
+                <ShieldCheck size={20} color="#059669" style={{ margin: '0 auto 6px' }} />
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>100% Authentic</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Certificate included</div>
+              </div>
+
+              <div style={{
+                padding: '14px',
+                border: '1px solid #f1f5f9',
+                borderRadius: '8px',
+                backgroundColor: '#fafafa',
+                textAlign: 'center',
+              }}>
+                <Truck size={20} color="#0284c7" style={{ margin: '0 auto 6px' }} />
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Free Insured Transit</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Reinforced art crating</div>
+              </div>
+
+              <div style={{
+                padding: '14px',
+                border: '1px solid #f1f5f9',
+                borderRadius: '8px',
+                backgroundColor: '#fafafa',
+                textAlign: 'center',
+              }}>
+                <RotateCcw size={20} color="#d97706" style={{ margin: '0 auto 6px' }} />
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>14-Day In-Home Trial</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Satisfaction guarantee</div>
+              </div>
             </div>
           </div>
         </div>

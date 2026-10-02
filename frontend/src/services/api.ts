@@ -12,7 +12,19 @@ import {
   FooterConfig
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002/api';
+export const BACKEND_URL = API_BASE.replace(/\/api\/?$/, '');
+
+export const getImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.includes('localhost:8080') || url.includes('127.0.0.1:8080')) {
+    return url.replace(/https?:\/\/(localhost|127\.0\.0\.1):8080/, BACKEND_URL);
+  }
+  if (url.startsWith('/uploads')) {
+    return `${BACKEND_URL}${url}`;
+  }
+  return url;
+};
 
 class ApiClient {
   private getToken(): string | null {

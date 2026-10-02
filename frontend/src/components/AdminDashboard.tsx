@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { Painting, Category, Inquiry, AdminStats, User, Banner, ShowcaseItem, ProductSection, Testimonial, FooterConfig, FeatureBadge, CustomFooterLink } from '../types';
-import { api } from '../services/api';
+import { api, BACKEND_URL, getImageUrl } from '../services/api';
 import {
   LayoutDashboard,
   Package,
   ClipboardList,
   Users,
   Settings,
+  FileSpreadsheet,
+  Download,
   Plus,
   Trash2,
   Edit,
@@ -92,6 +95,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('');
+
+  // Dashboard Date & Time Filter States
+  const [dashboardDateRange, setDashboardDateRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'this_month' | 'custom'>('all');
+  const [dashboardStartDate, setDashboardStartDate] = useState<string>(() => {
+    const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dashboardStartTime, setDashboardStartTime] = useState<string>('00:00');
+  const [dashboardEndDate, setDashboardEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [dashboardEndTime, setDashboardEndTime] = useState<string>('23:59');
 
   // Sections state
   const [sections, setSections] = useState<ProductSection[]>([]);
@@ -419,7 +432,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingSectionImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setSectionFormData((prev) => ({ ...prev, image_url: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload section image');
@@ -555,7 +568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingCategoryImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setCategoryFormData((prev) => ({ ...prev, image_url: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload category image');
@@ -707,6 +720,406 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setFooterConfig({ ...footerConfig, custom_links: updated });
   };
 
+  const handleUpdateSocialLink = (field: string, value: string) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      social_links: {
+        ...(prev.social_links || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  // ===================== DASHBOARD DATE & TIME FILTER LOGIC =====================
+  const getDateRangeLabel = (range: string) => {
+    switch (range) {
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
+      case '7days': return 'Last 7 Days';
+      case '30days': return 'Last 30 Days';
+      case 'this_month': return 'This Month';
+      case 'custom': return `Custom (${dashboardStartDate} ${dashboardStartTime} to ${dashboardEndDate} ${dashboardEndTime})`;
+      default: return 'All Time';
+    }
+  };
+
+  const isDateInRange = (
+    dateStr: string | null | undefined,
+    range: string,
+    startDay?: string,
+    startTime?: string,
+    endDay?: string,
+    endTime?: string
+  ): boolean => {
+    if (!dateStr || range === 'all') return true;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return true;
+
+    const now = new Date();
+
+    if (range === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return date >= todayStart && date <= todayEnd;
+    }
+
+    if (range === 'yesterday') {
+      const yStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const yEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+      return date >= yStart && date <= yEnd;
+    }
+
+    if (range === '7days') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return date >= sevenDaysAgo && date <= now;
+    }
+
+    if (range === '30days') {
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return date >= thirtyDaysAgo && date <= now;
+    }
+
+    if (range === 'this_month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return date >= monthStart && date <= now;
+    }
+
+    if (range === 'custom') {
+      if (startDay) {
+        const [sYear, sMonth, sDate] = startDay.split('-').map(Number);
+        const [sHour, sMin] = (startTime || '00:00').split(':').map(Number);
+        const startDate = new Date(sYear, sMonth - 1, sDate, sHour || 0, sMin || 0, 0, 0);
+        if (date < startDate) return false;
+      }
+      if (endDay) {
+        const [eYear, eMonth, eDate] = endDay.split('-').map(Number);
+        const [eHour, eMin] = (endTime || '23:59').split(':').map(Number);
+        const endDate = new Date(eYear, eMonth - 1, eDate, eHour || 23, eMin || 59, 59, 999);
+        if (date > endDate) return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  const filteredDashboardInquiries = useMemo(() => {
+    return inquiries.filter((inq) =>
+      isDateInRange(
+        inq.created_at,
+        dashboardDateRange,
+        dashboardStartDate,
+        dashboardStartTime,
+        dashboardEndDate,
+        dashboardEndTime
+      )
+    );
+  }, [inquiries, dashboardDateRange, dashboardStartDate, dashboardStartTime, dashboardEndDate, dashboardEndTime]);
+
+  const dashboardFilteredStats = useMemo(() => {
+    if (dashboardDateRange === 'all') {
+      const totalRev = stats?.estimated_pipeline_value || inquiries.reduce((sum, i) => sum + (i.quoted_price || i.painting?.price || 0), 0) || 45231;
+      return {
+        totalRevenue: totalRev,
+        totalInquiries: stats?.total_inquiries || inquiries.length,
+        confirmedOrders: stats?.confirmed_orders || inquiries.filter((i) => i.status === 'confirmed' || i.status === 'completed').length,
+        availablePaintings: stats?.available_paintings || paintings.length,
+        inquiriesList: inquiries,
+      };
+    }
+
+    const totalRevenue = filteredDashboardInquiries.reduce(
+      (sum, inq) => sum + (inq.quoted_price || inq.painting?.price || 0),
+      0
+    );
+    const confirmedOrders = filteredDashboardInquiries.filter(
+      (inq) => inq.status === 'confirmed' || inq.status === 'completed'
+    ).length;
+
+    return {
+      totalRevenue,
+      totalInquiries: filteredDashboardInquiries.length,
+      confirmedOrders,
+      availablePaintings: paintings.length,
+      inquiriesList: filteredDashboardInquiries,
+    };
+  }, [dashboardDateRange, filteredDashboardInquiries, inquiries, stats, paintings]);
+
+  // ===================== EXCEL REPORT GENERATION HELPERS =====================
+  const getSectionTitle = (sec: string) => {
+    switch (sec) {
+      case 'overview': return 'Overview';
+      case 'products': return 'Products';
+      case 'inquiries': return 'Orders & Inquiries';
+      case 'users': return 'Customers';
+      case 'categories': return 'Collections';
+      case 'sections': return 'Store Sections';
+      case 'banners': return 'Hero Banners';
+      case 'testimonials': return 'Testimonials';
+      case 'footer': return 'Footer Settings';
+      case 'settings': return 'Settings';
+      default: return 'Report';
+    }
+  };
+
+  const getOverviewData = () => {
+    return [
+      { 'Metric': 'Selected Date Filter', 'Value': getDateRangeLabel(dashboardDateRange), 'Notes': dashboardDateRange === 'all' ? 'All time cumulative records' : `Filtered from ${dashboardStartDate} ${dashboardStartTime} to ${dashboardEndDate} ${dashboardEndTime}` },
+      { 'Metric': 'Total Estimated Revenue', 'Value': `₹${dashboardFilteredStats.totalRevenue.toLocaleString('en-IN')}`, 'Notes': 'Aggregate value in selected period' },
+      { 'Metric': 'Total Inquiries & Orders', 'Value': dashboardFilteredStats.totalInquiries, 'Notes': 'Inquiries matching selected period' },
+      { 'Metric': 'Confirmed Orders', 'Value': dashboardFilteredStats.confirmedOrders, 'Notes': 'Processed customer orders in selected period' },
+      { 'Metric': 'Total Products / Artworks', 'Value': stats?.total_paintings || paintings.length, 'Notes': 'Current catalog inventory size' },
+      { 'Metric': 'Available Artworks', 'Value': stats?.available_paintings || paintings.filter((p) => p.status === 'available').length, 'Notes': 'Ready to purchase' },
+      { 'Metric': 'Sold Artworks', 'Value': stats?.sold_paintings || paintings.filter((p) => p.status === 'sold').length, 'Notes': 'Completed artworks sold' },
+      { 'Metric': 'Total Registered Users', 'Value': users.length, 'Notes': 'Customer and collector accounts' },
+      { 'Metric': 'Active Collections', 'Value': categories.length, 'Notes': 'Curated art collections' },
+      { 'Metric': 'Active Store Sections', 'Value': sections.length, 'Notes': 'Storefront curated sections' },
+      { 'Metric': 'Active Hero Banners', 'Value': banners.filter((b) => b.is_active).length, 'Notes': 'Homepage showcase banners' },
+      { 'Metric': 'Patron Testimonials', 'Value': testimonials.length, 'Notes': 'Collector reviews & quotes' },
+    ];
+  };
+
+  const getProductsData = () => {
+    return paintings.map((p) => {
+      const categoryName = categories.find((c) => c.id === p.category_id)?.name || 'Uncategorized';
+      const sectionName = sections.find((s) => s.id === p.section_id)?.name || 'None';
+      return {
+        'Product ID': p.id,
+        'Title': p.title,
+        'Artist': p.artist_name || 'Studio Curation',
+        'Medium': p.medium || '',
+        'Dimensions': p.dimensions || '',
+        'Selling Price (₹)': p.price,
+        'MRP (₹)': p.mrp || p.price,
+        'Discount (₹)': p.mrp && p.mrp > p.price ? p.mrp - p.price : 0,
+        'Status': p.status.toUpperCase(),
+        'Category / Collection': categoryName,
+        'Store Section': sectionName,
+        'Is Featured': p.featured ? 'Yes' : 'No',
+        'Is Framed': p.is_framed ? 'Yes' : 'No',
+        'Primary Image URL': p.image_url || '',
+        'Created Date': p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '',
+      };
+    });
+  };
+
+  const getInquiriesData = () => {
+    return inquiries.map((inq) => ({
+      'Inquiry ID': inq.id,
+      'Inquiry Code': inq.inquiry_code,
+      'Customer Name': inq.customer_name,
+      'Phone': inq.customer_phone,
+      'Email': inq.customer_email || '',
+      'Artwork Title': inq.painting?.title || 'General Inquiry',
+      'Artwork Price (₹)': inq.painting?.price || inq.quoted_price || 0,
+      'Status': inq.status ? inq.status.toUpperCase() : 'NEW',
+      'Customer Message': inq.message || '',
+      'Delivery Address': inq.shipping_address || '',
+      'Preferred Contact': inq.preferred_contact ? inq.preferred_contact.toUpperCase() : 'WHATSAPP',
+      'Admin Notes': inquiryNotes[inq.id] || inq.admin_notes || '',
+      'Order Date': inq.created_at ? new Date(inq.created_at).toLocaleString('en-IN') : '',
+    }));
+  };
+
+  const getUsersData = () => {
+    return users.map((u) => {
+      const userInquiries = inquiries.filter(
+        (inq) => (inq.customer_email && inq.customer_email.toLowerCase() === u.email?.toLowerCase()) || inq.user_id === u.id
+      );
+      return {
+        'User ID': u.id,
+        'Full Name': u.full_name,
+        'Email': u.email,
+        'Phone': u.phone || '',
+        'Role': u.role.toUpperCase(),
+        'Delivery Address': u.address || '',
+        'City': u.city || '',
+        'Total Orders / Inquiries': userInquiries.length,
+        'Registered Date': u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '',
+      };
+    });
+  };
+
+  const getCategoriesData = () => {
+    return categories.map((c) => {
+      const totalPaintings = paintings.filter((p) => p.category_id === c.id).length;
+      return {
+        'Category ID': c.id,
+        'Category Name': c.name,
+        'Slug': c.slug,
+        'Description': c.description || '',
+        'Total Artworks': totalPaintings,
+        'Cover Image URL': c.image_url || '',
+        'Created Date': c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '',
+      };
+    });
+  };
+
+  const getSectionsData = () => {
+    return sections.map((s) => {
+      const totalPaintings = paintings.filter((p) => p.section_id === s.id).length;
+      return {
+        'Section ID': s.id,
+        'Section Name': s.name,
+        'Slug': s.slug,
+        'Description': s.description || '',
+        'Display Order': s.display_order,
+        'Is Active': s.is_active ? 'Active' : 'Inactive',
+        'Total Artworks': totalPaintings,
+        'Created Date': s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN') : '',
+      };
+    });
+  };
+
+  const getBannersData = () => {
+    return banners.map((b) => ({
+      'Banner ID': b.id,
+      'Tag': b.tag,
+      'Title': b.title,
+      'Description': b.description,
+      'Button Text': b.button_text,
+      'Artist Name': b.artist_name,
+      'Price (₹)': b.price,
+      'Display Order': b.display_order,
+      'Is Active': b.is_active ? 'Active' : 'Inactive',
+      'Image URL': b.image_url,
+      'Created Date': b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '',
+    }));
+  };
+
+  const getTestimonialsData = () => {
+    return testimonials.map((t) => ({
+      'Testimonial ID': t.id,
+      'Patron Name': t.name,
+      'Location': t.location || '',
+      'Rating (Stars)': `${t.rating} / 5`,
+      'Quote / Review': t.quote,
+      'Display Order': t.display_order,
+      'Is Active': t.is_active ? 'Active' : 'Inactive',
+      'Created Date': t.created_at ? new Date(t.created_at).toLocaleDateString('en-IN') : '',
+    }));
+  };
+
+  const getFooterData = () => {
+    return [
+      { 'Setting Field': 'Brand Title', 'Configured Value': footerConfig.brand_name || '' },
+      { 'Setting Field': 'Brand Subtitle / Tagline', 'Configured Value': footerConfig.brand_subtitle || '' },
+      { 'Setting Field': 'Brand Description', 'Configured Value': footerConfig.brand_description || '' },
+      { 'Setting Field': 'Studio Location', 'Configured Value': footerConfig.studio_location || '' },
+      { 'Setting Field': 'Concierge Phone / WhatsApp', 'Configured Value': footerConfig.contact_phone || '' },
+      { 'Setting Field': 'Advisory Email', 'Configured Value': footerConfig.contact_email || '' },
+      { 'Setting Field': 'Copyright Notice', 'Configured Value': footerConfig.copyright_text || '' },
+      { 'Setting Field': 'Social Section Title', 'Configured Value': footerConfig.social_links?.section_title || 'Connect With Us' },
+      { 'Setting Field': 'Instagram URL', 'Configured Value': footerConfig.social_links?.instagram || '' },
+      { 'Setting Field': 'Facebook URL', 'Configured Value': footerConfig.social_links?.facebook || '' },
+      { 'Setting Field': 'WhatsApp URL / Number', 'Configured Value': footerConfig.social_links?.whatsapp || '' },
+      { 'Setting Field': 'Twitter / X URL', 'Configured Value': footerConfig.social_links?.twitter || '' },
+      { 'Setting Field': 'YouTube Channel URL', 'Configured Value': footerConfig.social_links?.youtube || '' },
+      { 'Setting Field': 'Newsletter Title', 'Configured Value': footerConfig.newsletter_title || '' },
+      { 'Setting Field': 'Newsletter Description', 'Configured Value': footerConfig.newsletter_description || '' },
+      { 'Setting Field': 'Newsletter Placeholder', 'Configured Value': footerConfig.newsletter_placeholder || '' },
+    ];
+  };
+
+  const exportCurrentSectionReport = (targetSection?: string) => {
+    try {
+      const current = targetSection || navSection;
+      const wb = XLSX.utils.book_new();
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      let filename = '';
+      switch (current) {
+        case 'overview': {
+          const wsKPI = XLSX.utils.json_to_sheet(getOverviewData());
+          XLSX.utils.book_append_sheet(wb, wsKPI, 'Store KPIs');
+          const wsRecent = XLSX.utils.json_to_sheet(getInquiriesData().slice(0, 50));
+          XLSX.utils.book_append_sheet(wb, wsRecent, 'Recent Activity');
+          filename = `Store_Overview_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'products': {
+          const ws = XLSX.utils.json_to_sheet(getProductsData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Products Inventory');
+          filename = `Products_Catalog_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'inquiries': {
+          const ws = XLSX.utils.json_to_sheet(getInquiriesData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Orders & Inquiries');
+          filename = `Orders_Inquiries_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'users': {
+          const ws = XLSX.utils.json_to_sheet(getUsersData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Customers & Accounts');
+          filename = `Customers_Accounts_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'categories': {
+          const ws = XLSX.utils.json_to_sheet(getCategoriesData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Collections');
+          filename = `Collections_Categories_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'sections': {
+          const ws = XLSX.utils.json_to_sheet(getSectionsData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Store Sections');
+          filename = `Store_Sections_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'banners': {
+          const ws = XLSX.utils.json_to_sheet(getBannersData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Hero Banners');
+          filename = `Hero_Banners_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'testimonials': {
+          const ws = XLSX.utils.json_to_sheet(getTestimonialsData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Patron Testimonials');
+          filename = `Patron_Testimonials_Report_${dateStr}.xlsx`;
+          break;
+        }
+        case 'footer': {
+          const ws = XLSX.utils.json_to_sheet(getFooterData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Footer Settings');
+          filename = `Footer_Configuration_Report_${dateStr}.xlsx`;
+          break;
+        }
+        default: {
+          const ws = XLSX.utils.json_to_sheet(getOverviewData());
+          XLSX.utils.book_append_sheet(wb, ws, 'Overview');
+          filename = `Store_Report_${dateStr}.xlsx`;
+          break;
+        }
+      }
+
+      XLSX.writeFile(wb, filename);
+    } catch (err: any) {
+      alert('Failed to generate Excel report: ' + (err.message || err));
+    }
+  };
+
+  const exportMasterStoreReport = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getOverviewData()), 'Store KPIs');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getProductsData()), 'Products Catalog');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getInquiriesData()), 'Orders & Inquiries');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getUsersData()), 'Customers');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getCategoriesData()), 'Collections');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getSectionsData()), 'Store Sections');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getBannersData()), 'Hero Banners');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getTestimonialsData()), 'Testimonials');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(getFooterData()), 'Footer Settings');
+
+      XLSX.writeFile(wb, `Complete_Store_Master_Report_${dateStr}.xlsx`);
+    } catch (err: any) {
+      alert('Failed to generate master store report: ' + (err.message || err));
+    }
+  };
+
   const handleAddSectionPrompt = async () => {
     const secName = window.prompt('Enter new store section name (e.g. Curators Choice, Trending Now):');
     if (!secName || !secName.trim()) return;
@@ -733,7 +1146,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setFormData((prev) => ({ ...prev, image_url: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload image file');
@@ -749,7 +1162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setFormData((prev) => ({ ...prev, [slot]: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload image file');
@@ -948,7 +1361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingBannerImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setBannerFormData((prev) => ({ ...prev, image_url: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload banner image file');
@@ -1044,7 +1457,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     setUploadingShowcaseImage(true);
     try {
       const res = await api.uploadImage(file);
-      const fullUrl = res.url.startsWith('http') ? res.url : `http://localhost:8080${res.url}`;
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
       setShowcaseFormData((prev) => ({ ...prev, image_url: fullUrl }));
     } catch (err: any) {
       alert(err.message || 'Failed to upload showcase image file');
@@ -1268,9 +1681,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 padding: '8px 12px',
                 borderRadius: '2px',
                 border: 'none',
-                backgroundColor: navSection === 'overview' && activeSubTab === 'overview' ? '#000000' : 'transparent',
-                color: navSection === 'overview' && activeSubTab === 'overview' ? '#ffffff' : '#374151',
-                fontWeight: navSection === 'overview' && activeSubTab === 'overview' ? 600 : 500,
+                backgroundColor: navSection === 'overview' ? '#000000' : 'transparent',
+                color: navSection === 'overview' ? '#ffffff' : '#374151',
+                fontWeight: navSection === 'overview' ? 600 : 500,
                 fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -1280,32 +1693,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             >
               <LayoutDashboard size={15} />
               Dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigate('/admin');
-                setActiveSubTab('analytics');
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '8px 12px',
-                borderRadius: '2px',
-                border: 'none',
-                backgroundColor: navSection === 'overview' && activeSubTab === 'analytics' ? '#000000' : 'transparent',
-                color: navSection === 'overview' && activeSubTab === 'analytics' ? '#ffffff' : '#374151',
-                fontWeight: navSection === 'overview' && activeSubTab === 'analytics' ? 600 : 500,
-                fontSize: '13px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Activity size={15} />
-              Analytics
             </button>
 
             {/* 2. CATALOG */}
@@ -1750,75 +2137,326 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
         <main className="admin-content-padding" style={{ padding: '32px 36px', overflowY: 'auto', flex: 1 }}>
           {/* Dynamic Section Header */}
           {navSection !== 'products' && (
-            <div style={{ marginBottom: '24px' }}>
-              <h1 style={{
-                fontSize: '24px',
-                fontWeight: 700,
-                color: '#000000',
-                letterSpacing: '-0.01em',
-                marginBottom: '4px',
-                fontFamily: "'Playfair Display', Georgia, serif"
-              }}>
-                {navSection === 'overview' && 'Dashboard'}
-                {navSection === 'inquiries' && 'Orders & Inquiries'}
-                {navSection === 'users' && 'Customers & Accounts'}
-                {navSection === 'settings' && 'Store Settings'}
-                {navSection === 'banners' && 'Hero Banners'}
-                {navSection === 'sections' && 'Store Sections'}
-                {navSection === 'categories' && 'Collections'}
-                {navSection === 'testimonials' && 'Patron Testimonials'}
-                {navSection === 'footer' && 'Footer Configuration'}
-              </h1>
-
-              {navSection === 'overview' ? (
-                /* Sub-nav Pill Selectors */
-                <div style={{
-                  display: 'inline-flex',
-                  backgroundColor: '#f4f4f5',
-                  padding: '3px',
-                  borderRadius: '2px',
-                  gap: '3px',
-                  marginTop: '8px',
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: '24px',
+              flexWrap: 'wrap',
+              gap: '16px'
+            }}>
+              <div>
+                <h1 style={{
+                  fontSize: '24px',
+                  fontWeight: 700,
+                  color: '#000000',
+                  letterSpacing: '-0.01em',
+                  marginBottom: '4px',
+                  fontFamily: "'Playfair Display', Georgia, serif"
                 }}>
-                  {(['overview', 'analytics', 'reports', 'notifications'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveSubTab(tab)}
+                  {navSection === 'overview' && 'Dashboard'}
+                  {navSection === 'inquiries' && 'Orders & Inquiries'}
+                  {navSection === 'users' && 'Customers & Accounts'}
+                  {navSection === 'settings' && 'Store Settings'}
+                  {navSection === 'banners' && 'Hero Banners'}
+                  {navSection === 'sections' && 'Store Sections'}
+                  {navSection === 'categories' && 'Collections'}
+                  {navSection === 'testimonials' && 'Patron Testimonials'}
+                  {navSection === 'footer' && 'Footer Configuration'}
+                </h1>
+
+                {navSection === 'overview' ? (
+                  /* Overview Pill */
+                  <div style={{
+                    display: 'inline-flex',
+                    backgroundColor: '#f4f4f5',
+                    padding: '3px',
+                    borderRadius: '2px',
+                    marginTop: '8px',
+                  }}>
+                    <div
                       style={{
-                        border: 'none',
                         padding: '6px 14px',
                         borderRadius: '2px',
-                        backgroundColor: activeSubTab === tab ? '#000000' : 'transparent',
-                        color: activeSubTab === tab ? '#ffffff' : '#71717a',
-                        fontWeight: activeSubTab === tab ? 600 : 500,
+                        backgroundColor: '#000000',
+                        color: '#ffffff',
+                        fontWeight: 600,
                         fontSize: '12.5px',
-                        cursor: 'pointer',
-                        textTransform: 'capitalize',
-                        transition: 'all 0.15s ease',
                       }}
                     >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  {navSection === 'inquiries' && 'Review incoming client orders, inquiries, and customer requests.'}
-                  {navSection === 'users' && 'View all registered customers, collectors, and admins stored in PostgreSQL.'}
-                  {navSection === 'settings' && 'Database connection and currency configuration.'}
-                  {navSection === 'banners' && 'Manage promotional hero banners and storefront visuals.'}
-                  {navSection === 'sections' && 'Curate storefront sections and featured highlights.'}
-                  {navSection === 'categories' && 'Organize artwork collections, styles, and taxonomies.'}
-                  {navSection === 'testimonials' && 'Manage patron reviews and quotes displayed on the storefront.'}
-                  {navSection === 'footer' && 'Configure global storefront footer content and brand badges.'}
-                </p>
-              )}
+                      Overview
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                    {navSection === 'inquiries' && 'Review incoming client orders, inquiries, and customer requests.'}
+                    {navSection === 'users' && 'View all registered customers, collectors, and admins stored in PostgreSQL.'}
+                    {navSection === 'settings' && 'Database connection and currency configuration.'}
+                    {navSection === 'banners' && 'Manage promotional hero banners and storefront visuals.'}
+                    {navSection === 'sections' && 'Curate storefront sections and featured highlights.'}
+                    {navSection === 'categories' && 'Organize artwork collections, styles, and taxonomies.'}
+                    {navSection === 'testimonials' && 'Manage patron reviews and quotes displayed on the storefront.'}
+                    {navSection === 'footer' && 'Configure global storefront footer content and brand badges.'}
+                  </p>
+                )}
+              </div>
+
+              {/* Dynamic Excel Report Generation Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {navSection === 'overview' ? (
+                  /* Dashboard Overview: Generate All Reports for all sections */
+                  <button
+                    type="button"
+                    onClick={exportMasterStoreReport}
+                    title="Export all sections in a single multi-sheet Excel workbook"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#18181b',
+                      border: '1px solid #27272a',
+                      color: '#ffffff',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#27272a';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#18181b';
+                    }}
+                  >
+                    <Download size={14} color="#ffffff" />
+                    <span>Generate All Reports (.xlsx)</span>
+                  </button>
+                ) : (
+                  /* Other Sections: Generate ONLY this particular section's report */
+                  <button
+                    type="button"
+                    onClick={() => exportCurrentSectionReport(navSection)}
+                    title={`Export ${getSectionTitle(navSection)} to Excel (.xlsx)`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #86efac',
+                      color: '#15803d',
+                      padding: '8px 14px',
+                      borderRadius: '4px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#dcfce7';
+                      e.currentTarget.style.borderColor = '#4ade80';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                  >
+                    <FileSpreadsheet size={15} color="#16a34a" />
+                    <span>Export {getSectionTitle(navSection)} (.xlsx)</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
           {/* VIEW 1: OVERVIEW (Exact Shadcn Layout from Screenshot) */}
           {navSection === 'overview' && (
             <div>
+              {/* Dashboard Date & Time Filter Bar */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e4e4e7',
+                borderRadius: '6px',
+                padding: '16px 20px',
+                marginBottom: '24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}>
+                  {/* Left: Filter Title & Quick Presets */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#09090b', fontWeight: 700, fontSize: '13px' }}>
+                      <Calendar size={15} color="#09090b" />
+                      <span>Date & Time Filter:</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'all', label: 'All Time' },
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: '7days', label: 'Last 7 Days' },
+                        { id: '30days', label: 'Last 30 Days' },
+                        { id: 'this_month', label: 'This Month' },
+                        { id: 'custom', label: 'Custom Range' },
+                      ].map((item) => {
+                        const isActive = dashboardDateRange === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setDashboardDateRange(item.id as any)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: isActive ? 700 : 500,
+                              backgroundColor: isActive ? '#09090b' : '#f4f4f5',
+                              color: isActive ? '#ffffff' : '#3f3f46',
+                              border: isActive ? '1px solid #09090b' : '1px solid #e4e4e7',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Active Filter Summary Tag */}
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#3f3f46',
+                    backgroundColor: '#fafafa',
+                    border: '1px solid #e4e4e7',
+                    padding: '5px 12px',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    <Clock size={12} color="#71717a" />
+                    <span>
+                      {dashboardDateRange === 'all'
+                        ? 'All Time Cumulated'
+                        : `${getDateRangeLabel(dashboardDateRange)} (${dashboardFilteredStats.totalInquiries} inquiries)`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Custom Date & Time Inputs */}
+                {dashboardDateRange === 'custom' && (
+                  <div style={{
+                    marginTop: '12px',
+                    paddingTop: '12px',
+                    borderTop: '1px dashed #e4e4e7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '14px',
+                  }}>
+                    {/* From Date & Time */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>From:</span>
+                      <input
+                        type="date"
+                        value={dashboardStartDate}
+                        onChange={(e) => setDashboardStartDate(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '5px 8px',
+                          border: '1px solid #d4d4d8',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          color: '#09090b',
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        type="time"
+                        value={dashboardStartTime}
+                        onChange={(e) => setDashboardStartTime(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '5px 8px',
+                          border: '1px solid #d4d4d8',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          color: '#09090b',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    {/* To Date & Time */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#52525b' }}>To:</span>
+                      <input
+                        type="date"
+                        value={dashboardEndDate}
+                        onChange={(e) => setDashboardEndDate(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '5px 8px',
+                          border: '1px solid #d4d4d8',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          color: '#09090b',
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        type="time"
+                        value={dashboardEndTime}
+                        onChange={(e) => setDashboardEndTime(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '5px 8px',
+                          border: '1px solid #d4d4d8',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          color: '#09090b',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    {/* Quick Reset */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                        setDashboardStartDate(d.toISOString().slice(0, 10));
+                        setDashboardStartTime('00:00');
+                        setDashboardEndDate(new Date().toISOString().slice(0, 10));
+                        setDashboardEndTime('23:59');
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        borderRadius: '3px',
+                        backgroundColor: '#f4f4f5',
+                        border: '1px solid #e4e4e7',
+                        color: '#71717a',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Reset Range
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* 4 Metric Cards in a Row */}
               <div className="responsive-admin-kpi-grid" style={{
                 display: 'grid',
@@ -1839,10 +2477,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <span style={{ color: '#71717a', fontSize: '13px' }}>₹</span>
                   </div>
                   <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    {formatPrice(stats?.estimated_pipeline_value || 45231)}
+                    {formatPrice(dashboardFilteredStats.totalRevenue)}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#000000', fontWeight: 700 }}>+20.1%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>
+                      {dashboardDateRange === 'all' ? '+20.1%' : getDateRangeLabel(dashboardDateRange)}
+                    </span> {dashboardDateRange === 'all' ? 'from last month' : 'period'}
                   </div>
                 </div>
 
@@ -1859,10 +2499,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <Users size={14} color="#71717a" />
                   </div>
                   <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    +{stats?.total_inquiries || inquiries.length || 235}
+                    +{dashboardFilteredStats.totalInquiries}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#000000', fontWeight: 700 }}>+180.1%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>
+                      {dashboardDateRange === 'all' ? '+180.1%' : `${dashboardFilteredStats.totalInquiries} in range`}
+                    </span> {dashboardDateRange === 'all' ? 'from last month' : ''}
                   </div>
                 </div>
 
@@ -1879,10 +2521,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <CreditCard size={14} color="#71717a" />
                   </div>
                   <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    +{stats?.confirmed_orders || 12}
+                    +{dashboardFilteredStats.confirmedOrders}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#000000', fontWeight: 700 }}>+19%</span> from last month
+                    <span style={{ color: '#000000', fontWeight: 700 }}>
+                      {dashboardDateRange === 'all' ? '+19%' : `${dashboardFilteredStats.confirmedOrders} confirmed`}
+                    </span> {dashboardDateRange === 'all' ? 'from last month' : 'orders'}
                   </div>
                 </div>
 
@@ -1899,10 +2543,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <Activity size={14} color="#71717a" />
                   </div>
                   <div style={{ fontSize: '22px', fontWeight: 700, color: '#000000', letterSpacing: '-0.01em', marginBottom: '4px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    +{stats?.available_paintings || paintings.length}
+                    +{dashboardFilteredStats.availablePaintings}
                   </div>
                   <div style={{ fontSize: '12px', color: '#71717a' }}>
-                    <span style={{ color: '#000000', fontWeight: 700 }}>+201</span> since last hour
+                    <span style={{ color: '#000000', fontWeight: 700 }}>In Stock</span> ready to ship
                   </div>
                 </div>
               </div>
@@ -1970,7 +2614,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   </div>
                 </div>
 
-                {/* Right Card: Recent Sales / Recent Inquiries (Exact replica from Shadcn screenshot) */}
+                {/* Right Card: Recent Sales / Recent Inquiries */}
                 <div style={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e4e4e7',
@@ -1983,14 +2627,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       Recent Inquiries & Orders
                     </h3>
                     <p style={{ fontSize: '13px', color: '#71717a', marginTop: '4px' }}>
-                      You made {inquiries.length} inquiries this month.
+                      {dashboardDateRange === 'all'
+                        ? `You have ${inquiries.length} total inquiries recorded.`
+                        : `Showing ${dashboardFilteredStats.inquiriesList.length} inquiries for ${getDateRangeLabel(dashboardDateRange)}.`}
                     </p>
                   </div>
 
                   {/* List of Recent Sales */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {inquiries.length > 0 ? (
-                      inquiries.slice(0, 5).map((inq) => {
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {dashboardFilteredStats.inquiriesList.length > 0 ? (
+                      dashboardFilteredStats.inquiriesList.slice(0, 6).map((inq) => {
                         const initials = inq.customer_name
                           .split(' ')
                           .map((n) => n[0])
@@ -1999,7 +2645,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           .slice(0, 2);
 
                         return (
-                          <div key={inq.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div key={inq.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #f4f4f5' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <div style={{
                                 width: '38px',
@@ -2020,57 +2666,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#09090b' }}>
                                   {inq.customer_name}
                                 </div>
-                                <div style={{ fontSize: '12px', color: '#71717a' }}>
-                                  {inq.customer_email} • {inq.customer_phone}
+                                <div style={{ fontSize: '11.5px', color: '#71717a' }}>
+                                  {inq.customer_email || inq.customer_phone} • {inq.created_at ? new Date(inq.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                                 </div>
                               </div>
                             </div>
-                            <div style={{ fontSize: '15px', fontWeight: 800, color: '#09090b' }}>
-                              +{formatPrice(inq.quoted_price)}
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: '#09090b' }}>
+                                +{formatPrice(inq.quoted_price || inq.painting?.price || 0)}
+                              </div>
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                backgroundColor: inq.status === 'confirmed' ? '#dcfce7' : inq.status === 'new' ? '#fef3c7' : '#f4f4f5',
+                                color: inq.status === 'confirmed' ? '#15803d' : inq.status === 'new' ? '#b45309' : '#52525b',
+                              }}>
+                                {inq.status || 'NEW'}
+                              </span>
                             </div>
                           </div>
                         );
                       })
                     ) : (
-                      // Sample placeholders matching screenshot
-                      [
-                        { name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00 },
-                        { name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00 },
-                        { name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00 },
-                        { name: 'William Kim', email: 'will@email.com', amount: 99.00 },
-                        { name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00 },
-                      ].map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                              width: '38px',
-                              height: '38px',
-                              borderRadius: '50%',
-                              backgroundColor: '#f4f4f5',
-                              border: '1px solid #e4e4e7',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 700,
-                              fontSize: '12px',
-                              color: '#18181b',
-                            }}>
-                              {item.name.split(' ').map((n) => n[0]).join('')}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#09090b' }}>
-                                {item.name}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#71717a' }}>
-                                {item.email}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '15px', fontWeight: 800, color: '#09090b' }}>
-                            +{formatPrice(item.amount)}
-                          </div>
-                        </div>
-                      ))
+                      <div style={{ padding: '30px 10px', textAlign: 'center', color: '#71717a', fontSize: '13px' }}>
+                        No inquiries or orders found for the selected date and time range.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2111,7 +2734,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   {/* Search products input */}
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <Search
@@ -2137,6 +2760,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       }}
                     />
                   </div>
+
+                  {/* Export Products Catalog (.xlsx) */}
+                  <button
+                    type="button"
+                    onClick={() => exportCurrentSectionReport('products')}
+                    title="Export Products Catalog to Excel (.xlsx)"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #86efac',
+                      color: '#15803d',
+                      padding: '8px 14px',
+                      borderRadius: '4px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#dcfce7';
+                      e.currentTarget.style.borderColor = '#4ade80';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                  >
+                    <FileSpreadsheet size={15} color="#16a34a" />
+                    <span>Export Catalog (.xlsx)</span>
+                  </button>
 
                   {/* + Add Product Button */}
                   <button
@@ -3524,7 +4180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                         }}
                       >
                         <img
-                          src={item.image_url}
+                          src={getImageUrl(item.image_url)}
                           alt={item.title || 'Showcase'}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -3609,7 +4265,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 backgroundColor: '#18181b',
                               }}>
                                 <img
-                                  src={item.image_url}
+                                  src={getImageUrl(item.image_url)}
                                   alt={item.title || 'Showcase'}
                                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
@@ -4288,7 +4944,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     <PanelBottom size={18} color="#000000" /> Global Storefront Footer Settings
                   </h3>
                   <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    Customize every section of the storefront footer: value-prop badges, brand description, categories, custom links, newsletter, and copyright.
+                    Customize every section of the storefront footer: brand identity, studio contact, curated categories, custom links, social media links, newsletter, and copyright.
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4339,7 +4995,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
               </div>
 
-              {/* CARD 1: Value-Proposition Badges (Top 3 Badges) */}
+              {/* CARD 1: Brand Information & Contact */}
               <div style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid #e5e7eb',
@@ -4347,125 +5003,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 padding: '24px',
               }}>
                 <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  1. Top Highlight Badges (Value Propositions)
+                  1. Brand Identity &amp; Studio Contact
                 </h4>
                 <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  The 3 cards displayed at the very top of the footer (e.g. Free Insured Delivery, Authenticity Guarantee, 30-Day Returns).
-                </p>
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                  gap: '18px',
-                }}>
-                  {[0, 1, 2].map((idx) => {
-                    const badge = (footerConfig.feature_badges || [])[idx] || {
-                      icon: idx === 0 ? 'truck' : idx === 1 ? 'shield' : 'refresh',
-                      title: '',
-                      subtitle: '',
-                    };
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          border: '1px solid #e5e7eb',
-                          backgroundColor: '#fafafa',
-                          borderRadius: '2px',
-                          padding: '16px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Badge #{idx + 1}
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <label style={{ fontSize: '12px', color: '#71717a', fontWeight: 600 }}>Icon:</label>
-                            <select
-                              value={badge.icon || 'truck'}
-                              onChange={(e) => handleUpdateBadge(idx, 'icon', e.target.value)}
-                              style={{
-                                padding: '4px 8px',
-                                borderRadius: '2px',
-                                border: '1px solid #e5e7eb',
-                                fontSize: '12px',
-                                backgroundColor: '#ffffff',
-                                color: '#000000',
-                              }}
-                            >
-                              <option value="truck">Truck (Delivery)</option>
-                              <option value="shield">Shield (Authenticity)</option>
-                              <option value="refresh">Refresh (Returns)</option>
-                              <option value="award">Award (Curated)</option>
-                              <option value="sparkles">Sparkles (Exclusive)</option>
-                              <option value="package">Package (Custom Crates)</option>
-                              <option value="clock">Clock (24/7 Advisory)</option>
-                              <option value="gem">Gem (Provenance)</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
-                            Badge Title
-                          </label>
-                          <input
-                            type="text"
-                            value={badge.title}
-                            onChange={(e) => handleUpdateBadge(idx, 'title', e.target.value)}
-                            placeholder="e.g. FREE GLOBAL INSURED DELIVERY"
-                            style={{
-                              width: '100%',
-                              padding: '8px 10px',
-                              borderRadius: '2px',
-                              border: '1px solid #e5e7eb',
-                              fontSize: '12.5px',
-                              boxSizing: 'border-box',
-                              color: '#000000',
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '4px' }}>
-                            Badge Subtitle
-                          </label>
-                          <input
-                            type="text"
-                            value={badge.subtitle}
-                            onChange={(e) => handleUpdateBadge(idx, 'subtitle', e.target.value)}
-                            placeholder="e.g. Climate-controlled custom art crates"
-                            style={{
-                              width: '100%',
-                              padding: '8px 10px',
-                              borderRadius: '2px',
-                              border: '1px solid #e5e7eb',
-                              fontSize: '12.5px',
-                              boxSizing: 'border-box',
-                              color: '#000000',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* CARD 2: Brand Information & Payment Badges */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '2px',
-                padding: '24px',
-              }}>
-                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  2. Brand Identity & Payment Logos
-                </h4>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  First column content in the footer: brand title, mission tagline, and payment provider logos.
+                  First column content in the footer: brand title, mission tagline, and studio contact info.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
@@ -4621,7 +5162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
               </div>
 
-              {/* CARD 3 & 4: Categories & Custom Links Columns */}
+              {/* CARD 2 & 3: Categories & Custom Links Columns */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 {/* Categories Column Config */}
                 <div style={{
@@ -4631,7 +5172,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                   padding: '24px',
                 }}>
                   <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    3. Curated Categories Column
+                    2. Curated Categories Column
                   </h4>
                   <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
                     Second column header and limits for categories loaded from database.
@@ -4698,7 +5239,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', margin: 0, fontFamily: "'Playfair Display', Georgia, serif" }}>
-                      4. Custom Column (Curation Desk)
+                      3. Custom Column (Curation Desk)
                     </h4>
                     <button
                       type="button"
@@ -4795,6 +5336,149 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
               </div>
 
+              {/* CARD 4: Social Media & Community Links */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
+                padding: '24px',
+              }}>
+                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '6px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  4. Social Media &amp; Community Links (Connect With Us)
+                </h4>
+                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                  Configure your official social media URLs displayed prominently with branded logos in the storefront footer.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      Section Header Title
+                    </label>
+                    <input
+                      type="text"
+                      value={footerConfig.social_links?.section_title || ''}
+                      onChange={(e) => handleUpdateSocialLink('section_title', e.target.value)}
+                      placeholder="Connect With Us"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      📸 Instagram Profile URL
+                    </label>
+                    <input
+                      type="url"
+                      value={footerConfig.social_links?.instagram || ''}
+                      onChange={(e) => handleUpdateSocialLink('instagram', e.target.value)}
+                      placeholder="https://instagram.com/yourbrand"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      👥 Facebook Page URL
+                    </label>
+                    <input
+                      type="url"
+                      value={footerConfig.social_links?.facebook || ''}
+                      onChange={(e) => handleUpdateSocialLink('facebook', e.target.value)}
+                      placeholder="https://facebook.com/yourpage"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      💬 WhatsApp Number or Chat URL
+                    </label>
+                    <input
+                      type="text"
+                      value={footerConfig.social_links?.whatsapp || ''}
+                      onChange={(e) => handleUpdateSocialLink('whatsapp', e.target.value)}
+                      placeholder="+91 98765 43210 or https://wa.me/..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      🐦 Twitter / X Profile URL
+                    </label>
+                    <input
+                      type="url"
+                      value={footerConfig.social_links?.twitter || ''}
+                      onChange={(e) => handleUpdateSocialLink('twitter', e.target.value)}
+                      placeholder="https://twitter.com/yourhandle"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                      ▶️ YouTube Channel URL
+                    </label>
+                    <input
+                      type="url"
+                      value={footerConfig.social_links?.youtube || ''}
+                      onChange={(e) => handleUpdateSocialLink('youtube', e.target.value)}
+                      placeholder="https://youtube.com/@yourchannel"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '2px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        color: '#000000',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* CARD 5 & 6: Newsletter & Copyright */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 {/* Newsletter Column Config */}
@@ -4808,7 +5492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     5. Newsletter Subscription Column
                   </h4>
                   <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    Fourth column newsletter pitch and input placeholder.
+                    Newsletter pitch and input placeholder.
                   </p>
 
                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
@@ -4818,7 +5502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     type="text"
                     value={footerConfig.newsletter_title}
                     onChange={(e) => setFooterConfig({ ...footerConfig, newsletter_title: e.target.value })}
-                    placeholder="NEWSLETTER"
+                    placeholder="Subscribe for 10% Off"
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -4838,7 +5522,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     rows={3}
                     value={footerConfig.newsletter_description}
                     onChange={(e) => setFooterConfig({ ...footerConfig, newsletter_description: e.target.value })}
-                    placeholder="Be the first to know about new arrivals..."
+                    placeholder="Subscribe for special artwork previews..."
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -4859,7 +5543,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     type="text"
                     value={footerConfig.newsletter_placeholder}
                     onChange={(e) => setFooterConfig({ ...footerConfig, newsletter_placeholder: e.target.value })}
-                    placeholder="Your email"
+                    placeholder="Enter your email"
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -4883,7 +5567,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     6. Copyright &amp; Advisory Contact
                   </h4>
                   <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                    Bottom bar copyright notice and optional contact advisory info.
+                    Bottom bar copyright notice and contact advisory info.
                   </p>
 
                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#000000', display: 'block', marginBottom: '6px' }}>
@@ -4893,7 +5577,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     type="text"
                     value={footerConfig.copyright_text}
                     onChange={(e) => setFooterConfig({ ...footerConfig, copyright_text: e.target.value })}
-                    placeholder="Copyright © 2026 All rights reserved | Art Gallery Curations & Studio"
+                    placeholder="Copyright © 2026 All rights reserved"
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -4933,7 +5617,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     type="email"
                     value={footerConfig.contact_email || ''}
                     onChange={(e) => setFooterConfig({ ...footerConfig, contact_email: e.target.value })}
-                    placeholder="curation@artgallery.com"
+                    placeholder="hello@shopbypriya.com"
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -4960,7 +5644,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       7. Real-Time Storefront Footer Preview
                     </h4>
                     <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                      This preview updates live as you type, reflecting the exact design and dark theme rendered for collectors.
+                      This preview updates live as you type, reflecting the exact design rendered for collectors.
                     </p>
                   </div>
                   <button
@@ -4983,42 +5667,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 </div>
 
                 <div style={{
-                  borderRadius: '2px',
+                  borderRadius: '4px',
                   overflow: 'hidden',
-                  border: '1px solid #27272a',
+                  border: '1px solid #e5e3dc',
                 }}>
                   <div style={{
-                    backgroundColor: '#111111',
-                    color: '#b7b7b7',
-                    padding: '40px 24px 20px',
-                    fontFamily: "'Nunito Sans', sans-serif",
+                    backgroundColor: '#f3f2ee',
+                    color: '#4b5563',
+                    padding: '36px 24px 20px',
+                    fontFamily: "'Roboto Condensed', sans-serif",
                   }}>
-                    {/* Top Badges Preview */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                      gap: '20px',
-                      paddingBottom: '24px',
-                      marginBottom: '32px',
-                      borderBottom: '1px solid #222222',
-                    }}>
-                      {(footerConfig.feature_badges || []).map((b, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ color: '#ffffff' }}>
-                            {b.icon === 'shield' ? <ShieldCheck size={26} /> : b.icon === 'refresh' ? <RefreshCw size={26} /> : <Truck size={26} />}
-                          </div>
-                          <div>
-                            <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase' }}>
-                              {b.title || `Badge #${idx + 1}`}
-                            </div>
-                            <div style={{ fontSize: '11.5px', color: '#888888', marginTop: '2px' }}>
-                              {b.subtitle || 'Badge subtitle description'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
                     {/* Columns Preview */}
                     <div style={{
                       display: 'grid',
@@ -5029,12 +5687,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       {/* Col 1: Brand */}
                       <div>
                         <div style={{
-                          fontSize: '24px',
-                          fontFamily: "'Playfair Display', Georgia, serif",
-                          fontWeight: 700,
-                          color: '#ffffff',
+                          fontSize: '20px',
+                          fontWeight: 800,
+                          color: '#111827',
                           letterSpacing: '-0.02em',
-                          marginBottom: '8px',
+                          marginBottom: '4px',
                           lineHeight: 1.15,
                         }}>
                           {footerConfig.brand_name || 'shopbypriya'}
@@ -5042,91 +5699,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
                         {footerConfig.brand_subtitle && (
                           <div style={{
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            color: '#e4e4e7',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.06em',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            letterSpacing: '0.02em',
                             marginBottom: '10px',
                           }}>
                             {footerConfig.brand_subtitle}
                           </div>
                         )}
 
-                        <p style={{ fontSize: '12px', lineHeight: 1.5, color: '#9ca3af', marginBottom: '14px' }}>
+                        <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#6b7280', marginBottom: '14px' }}>
                           {footerConfig.brand_description}
                         </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px', color: '#d1d5db' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12.5px', color: '#4b5563' }}>
                           {footerConfig.studio_location && (
                             <div>📍 {footerConfig.studio_location}</div>
                           )}
                           {footerConfig.contact_phone && (
-                            <div>📞 Concierge: {footerConfig.contact_phone}</div>
+                            <div>📞 {footerConfig.contact_phone}</div>
                           )}
                           {footerConfig.contact_email && (
-                            <div>✉️ Email: {footerConfig.contact_email}</div>
+                            <div>✉️ {footerConfig.contact_email}</div>
                           )}
                         </div>
-
-                        {footerConfig.show_payment_methods && footerConfig.payment_image_url && (
-                          <img
-                            src={footerConfig.payment_image_url}
-                            alt="Payment methods"
-                            style={{ maxHeight: '20px', opacity: 0.8, marginTop: '12px' }}
-                            onError={(e) => (e.currentTarget.style.display = 'none')}
-                          />
-                        )}
                       </div>
 
-                      {/* Col 2: Categories */}
+                      {/* Col 2: Shop / Custom Links */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
-                          {footerConfig.categories_title}
+                        <div style={{ color: '#111827', fontWeight: 700, fontSize: '14.5px', marginBottom: '14px' }}>
+                          {footerConfig.custom_column_title || 'Shop'}
                         </div>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#4b5563' }}>
+                          {(footerConfig.custom_links && footerConfig.custom_links.length > 0) ? (
+                            footerConfig.custom_links.map((l, idx) => (
+                              <li key={idx}>{l.title}</li>
+                            ))
+                          ) : (
+                            <>
+                              <li>All Artworks</li>
+                              <li>Best Sellers</li>
+                              <li>New Arrivals</li>
+                              <li>Featured Collection</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Col 3: Categories */}
+                      <div>
+                        <div style={{ color: '#111827', fontWeight: 700, fontSize: '14.5px', marginBottom: '14px' }}>
+                          {footerConfig.categories_title || 'Collections'}
+                        </div>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#4b5563' }}>
                           {categories.slice(0, footerConfig.max_categories_to_show).map((cat) => (
                             <li key={cat.id}>{cat.name}</li>
                           ))}
                         </ul>
                       </div>
 
-                      {/* Col 3: Custom Links */}
+                      {/* Col 4: Connect With Us */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
-                          {footerConfig.custom_column_title}
+                        <div style={{ color: '#111827', fontWeight: 700, fontSize: '14.5px', marginBottom: '14px' }}>
+                          {footerConfig.social_links?.section_title || 'Connect With Us'}
                         </div>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', color: '#888888' }}>
-                          {(footerConfig.custom_links || []).map((l, idx) => (
-                            <li key={idx}>{l.title}</li>
-                          ))}
-                        </ul>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12.5px' }}>
+                          <div style={{ padding: '5px 10px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #e5e3dc', fontWeight: 600, color: '#374151' }}>
+                            📸 Instagram {footerConfig.social_links?.instagram ? '✓' : ''}
+                          </div>
+                          <div style={{ padding: '5px 10px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #e5e3dc', fontWeight: 600, color: '#374151' }}>
+                            👥 Facebook {footerConfig.social_links?.facebook ? '✓' : ''}
+                          </div>
+                          <div style={{ padding: '5px 10px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #e5e3dc', fontWeight: 600, color: '#374151' }}>
+                            💬 WhatsApp {footerConfig.social_links?.whatsapp ? '✓' : ''}
+                          </div>
+                          <div style={{ padding: '5px 10px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #e5e3dc', fontWeight: 600, color: '#374151' }}>
+                            🐦 Twitter / X {footerConfig.social_links?.twitter ? '✓' : ''}
+                          </div>
+                          {footerConfig.social_links?.youtube && (
+                            <div style={{ padding: '5px 10px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #e5e3dc', fontWeight: 600, color: '#374151' }}>
+                              ▶️ YouTube ✓
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Col 4: Newsletter */}
+                      {/* Col 5: Newsletter */}
                       <div>
-                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '14px' }}>
-                          {footerConfig.newsletter_title}
+                        <div style={{ color: '#111827', fontWeight: 700, fontSize: '14.5px', marginBottom: '14px' }}>
+                          {footerConfig.newsletter_title || 'Subscribe for 10% Off'}
                         </div>
-                        <p style={{ fontSize: '12px', color: '#888888', marginBottom: '12px', lineHeight: 1.5 }}>
+                        <p style={{ fontSize: '12.5px', color: '#6b7280', marginBottom: '12px', lineHeight: 1.5 }}>
                           {footerConfig.newsletter_description}
                         </p>
-                        <div style={{ display: 'flex', borderBottom: '1px solid #333333', paddingBottom: '4px' }}>
-                          <span style={{ fontSize: '12px', color: '#666666' }}>{footerConfig.newsletter_placeholder}</span>
-                          <Mail size={15} color="#ffffff" style={{ marginLeft: 'auto' }} />
+                        <div style={{ display: 'flex', borderRadius: '4px', overflow: 'hidden', border: '1px solid #d5d3cb' }}>
+                          <span style={{ fontSize: '12px', color: '#9ca3af', padding: '6px 10px', backgroundColor: '#ffffff', flex: 1 }}>{footerConfig.newsletter_placeholder || 'Enter your email'}</span>
+                          <span style={{ backgroundColor: '#1b3b2b', color: '#ffffff', padding: '6px 12px', fontSize: '12px', fontWeight: 700 }}>Join</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Bottom Copyright */}
                     <div style={{
-                      borderTop: '1px solid #222222',
+                      borderTop: '1px solid #e5e3dc',
                       paddingTop: '16px',
-                      textAlign: 'center',
+                      display: 'flex',
+                      justifyContent: 'space-between',
                       fontSize: '12px',
-                      color: '#666666',
+                      color: '#9ca3af',
                     }}>
-                      {footerConfig.copyright_text}
+                      <div>{footerConfig.copyright_text}</div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <span>Privacy Policy</span>
+                        <span>Terms of Service</span>
+                        <span>Sitemap</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5532,40 +6220,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                       )}
                     </button>
                   </form>
-                </div>
-              </div>
-
-              {/* CARD 3: Store & Database Environment Info */}
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '2px',
-                padding: '24px',
-              }}>
-                <h4 style={{ fontSize: '14.5px', fontWeight: 700, color: '#000000', marginBottom: '14px', fontFamily: "'Playfair Display', Georgia, serif" }}>
-                  System & Environment Details
-                </h4>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Database Engine</div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>PostgreSQL (Supabase Cloud)</div>
-                  </div>
-
-                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Store Currency</div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>INR (₹) Indian Rupee</div>
-                  </div>
-
-                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Security Standard</div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>Bcrypt + JWT Authentication</div>
-                  </div>
-
-                  <div style={{ padding: '14px', backgroundColor: '#fafafa', borderRadius: '2px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Administrator Access</div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#000000', marginTop: '4px' }}>Full Management Permissions</div>
-                  </div>
                 </div>
               </div>
             </div>

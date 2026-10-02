@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Painting } from '../types';
 import { Heart, ShoppingBag } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
+import { getImageUrl } from '../services/api';
 
 interface PaintingCardProps {
   painting: Painting;
@@ -128,7 +129,7 @@ export const PaintingCard: React.FC<PaintingCardProps> = ({
 
         {/* Product Image */}
         <img
-          src={painting.image_url}
+          src={getImageUrl(painting.image_url)}
           alt={painting.title}
           loading="lazy"
           style={{
