@@ -177,6 +177,7 @@ export interface FooterConfig {
   id?: number;
   brand_name: string;
   brand_subtitle?: string;
+  brand_logo_url?: string;
   brand_description: string;
   studio_location?: string;
   payment_image_url?: string;

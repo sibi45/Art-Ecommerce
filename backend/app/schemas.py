@@ -282,9 +282,10 @@ class CustomLinkItem(BaseModel):
     url: str = "#"
 
 class FooterConfigBase(BaseModel):
-    brand_name: str = "shopbypriya"
-    brand_subtitle: Optional[str] = "HANDCRAFTED SILK & READY-TO-SHIP BLOUSES"
-    brand_description: str = "Atelier blouses for sarees. Ready-made and made to measure."
+    brand_name: Optional[str] = ""
+    brand_subtitle: Optional[str] = ""
+    brand_logo_url: Optional[str] = None
+    brand_description: str = "Original Fine Art, Curated Paintings & Bespoke Framing."
     studio_location: Optional[str] = "Studio: Mumbai & Chennai, India"
     payment_image_url: Optional[str] = "https://preview.colorlib.com/theme/malefashion/img/payment.png"
     show_payment_methods: bool = False
@@ -304,12 +305,13 @@ class FooterConfigBase(BaseModel):
     copyright_text: str = "Copyright © 2026 All rights reserved | Art Gallery Curations & Studio"
 
     contact_phone: Optional[str] = "+91 98765 43210"
-    contact_email: Optional[str] = "hello@shopbypriya.com"
+    contact_email: Optional[str] = "support@artweb.com"
     social_links: Optional[dict] = None
 
 class FooterConfigUpdate(BaseModel):
     brand_name: Optional[str] = None
     brand_subtitle: Optional[str] = None
+    brand_logo_url: Optional[str] = None
     brand_description: Optional[str] = None
     studio_location: Optional[str] = None
     payment_image_url: Optional[str] = None

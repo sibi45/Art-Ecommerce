@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     try {
       const cached = localStorage.getItem('artweb_footer_config');
       if (cached) return JSON.parse(cached);
-    } catch (e) {}
+    } catch (e) { }
     return null;
   });
 
@@ -73,15 +73,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isAccountOpen]);
 
   useEffect(() => {
-    api.getSections().then((data) => setSections(data || [])).catch(() => {});
+    api.getSections().then((data) => setSections(data || [])).catch(() => { });
     api.getFooterConfig().then((data) => {
       if (data) {
         setFooterConfig(data);
         try {
           localStorage.setItem('artweb_footer_config', JSON.stringify(data));
-        } catch (e) {}
+        } catch (e) { }
       }
-    }).catch(() => {});
+    }).catch(() => { });
+
+    const handleConfigUpdate = () => {
+      try {
+        const cached = localStorage.getItem('artweb_footer_config');
+        if (cached) {
+          setFooterConfig(JSON.parse(cached));
+        } else {
+          api.getFooterConfig().then((data) => {
+            if (data) setFooterConfig(data);
+          }).catch(() => { });
+        }
+      } catch (e) { }
+    };
+
+    window.addEventListener('artweb_footer_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleConfigUpdate);
+    return () => {
+      window.removeEventListener('artweb_footer_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleConfigUpdate);
+    };
   }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -132,49 +152,76 @@ export const Navbar: React.FC<NavbarProps> = ({
               userSelect: 'none',
             }}
           >
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              backgroundColor: '#1b3b2b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: '0 2px 6px rgba(27, 59, 43, 0.25)',
-            }}>
-              <ShoppingBag size={20} strokeWidth={2.2} />
-            </div>
-            <div>
+            {footerConfig?.brand_logo_url ? (
+              <img
+                src={footerConfig.brand_logo_url}
+                alt={footerConfig.brand_name || 'Store Logo'}
+                style={{
+                  height: 'auto',
+                  maxHeight: '58px',
+                  width: (footerConfig.brand_name || footerConfig.brand_subtitle)
+                    ? 'auto'
+                    : `${footerConfig.social_links?.logo_width || 240}px`,
+                  maxWidth: (footerConfig.brand_name || footerConfig.brand_subtitle)
+                    ? `${Math.max(160, Number(footerConfig.social_links?.logo_width) || 200)}px`
+                    : `${Math.max(280, Number(footerConfig.social_links?.logo_width) || 280)}px`,
+                  objectFit: 'contain',
+                  borderRadius: '4px',
+                  display: 'block',
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
               <div style={{
-                fontSize: '22px',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: '#111827',
-                lineHeight: 1,
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                backgroundColor: '#1b3b2b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: '0 2px 6px rgba(27, 59, 43, 0.25)',
+                flexShrink: 0,
               }}>
-                {footerConfig?.brand_name || ''}
+                <ShoppingBag size={20} strokeWidth={2.2} />
               </div>
-              {footerConfig?.brand_subtitle && (
-                <div
-                  className="brand-subtitle-mobile"
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    color: '#6b7280',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    marginTop: '1px',
-                    maxWidth: '180px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {footerConfig.brand_subtitle}
-                </div>
-              )}
-            </div>
+            )}
+
+            {(footerConfig?.brand_name || footerConfig?.brand_subtitle) && (
+              <div>
+                {footerConfig?.brand_name && (
+                  <div style={{
+                    fontSize: '22px',
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                    color: '#111827',
+                    lineHeight: 1,
+                  }}>
+                    {footerConfig.brand_name}
+                  </div>
+                )}
+                {footerConfig?.brand_subtitle && (
+                  <div
+                    className="brand-subtitle-mobile"
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      color: '#6b7280',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      marginTop: '2px',
+                      maxWidth: '180px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {footerConfig.brand_subtitle}
+                  </div>
+                )}
+              </div>
+            )}
           </Link>
 
           {/* Center: Navigation Links (Minimog Style) */}

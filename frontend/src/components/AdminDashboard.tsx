@@ -149,9 +149,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
 
   // Footer configuration state
   const [footerConfig, setFooterConfig] = useState<FooterConfig>({
-    brand_name: 'shopbypriya',
-    brand_subtitle: 'HANDCRAFTED SILK & READY-TO-SHIP BLOUSES',
-    brand_description: 'Atelier blouses for sarees. Ready-made and made to measure.',
+    brand_name: '',
+    brand_subtitle: '',
+    brand_logo_url: '',
+    brand_description: 'Original Fine Art, Curated Paintings & Bespoke Framing.',
     studio_location: 'Studio: Mumbai & Chennai, India',
     payment_image_url: 'https://preview.colorlib.com/theme/malefashion/img/payment.png',
     show_payment_methods: false,
@@ -186,7 +187,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
     newsletter_placeholder: 'Your email',
     copyright_text: 'Copyright © 2026 All rights reserved | Art Gallery Curations & Studio',
     contact_phone: '+91 98765 43210',
-    contact_email: 'hello@shopbypriya.com',
+    contact_email: 'hello@gmail.com',
     social_links: {
       instagram: 'https://instagram.com',
       facebook: 'https://facebook.com',
@@ -196,6 +197,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
   });
   const [isSavingFooter, setIsSavingFooter] = useState(false);
   const [footerSaveSuccess, setFooterSaveSuccess] = useState(false);
+
+  // Store Logo & Branding in Settings state
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [storeBrandingSuccessMsg, setStoreBrandingSuccessMsg] = useState('');
+  const [storeBrandingErrorMsg, setStoreBrandingErrorMsg] = useState('');
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
 
   // Banners state
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -695,6 +702,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       setFooterConfig(updated);
       try {
         localStorage.setItem('artweb_footer_config', JSON.stringify(updated));
+        window.dispatchEvent(new Event('artweb_footer_config_updated'));
       } catch (e) {}
       setFooterSaveSuccess(true);
       setTimeout(() => setFooterSaveSuccess(false), 4000);
@@ -702,6 +710,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
       alert(err.message || 'Failed to save footer settings');
     } finally {
       setIsSavingFooter(false);
+    }
+  };
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    setStoreBrandingErrorMsg('');
+    try {
+      const res = await api.uploadImage(file);
+      const fullUrl = res.url.startsWith('http') ? res.url : `${BACKEND_URL}${res.url}`;
+      setFooterConfig((prev) => ({ ...prev, brand_logo_url: fullUrl }));
+      setStoreBrandingSuccessMsg('Logo uploaded! Click "Save Store Branding & Logo" below to apply changes.');
+    } catch (err: any) {
+      setStoreBrandingErrorMsg(err.message || 'Failed to upload logo image');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFooterConfig((prev) => ({ ...prev, brand_logo_url: '' }));
+    setStoreBrandingSuccessMsg('Logo removed. Click "Save Store Branding & Logo" below to apply changes.');
+  };
+
+  const handleSaveStoreBranding = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingBranding(true);
+    setStoreBrandingSuccessMsg('');
+    setStoreBrandingErrorMsg('');
+
+    try {
+      const updated = await api.updateFooterConfig(footerConfig);
+      setFooterConfig(updated);
+      try {
+        localStorage.setItem('artweb_footer_config', JSON.stringify(updated));
+        window.dispatchEvent(new Event('artweb_footer_config_updated'));
+      } catch (e) {}
+      setStoreBrandingSuccessMsg('Store logo and brand identity saved successfully!');
+      setTimeout(() => setStoreBrandingSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setStoreBrandingErrorMsg(err.message || 'Failed to save store branding');
+    } finally {
+      setIsSavingBranding(false);
     }
   };
 
@@ -1835,29 +1888,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
             borderBottom: '1px solid #e5e7eb',
             marginBottom: '16px',
           }}>
-            <div style={{
-              width: '26px',
-              height: '26px',
-              borderRadius: '2px',
-              backgroundColor: '#000000',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '13px',
-            }}>
-              ✦
-            </div>
+            {footerConfig?.brand_logo_url ? (
+              <img
+                src={footerConfig.brand_logo_url}
+                alt={footerConfig.brand_name || 'Logo'}
+                style={{
+                  height: '28px',
+                  maxWidth: '38px',
+                  objectFit: 'contain',
+                  borderRadius: '3px',
+                  display: 'block',
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '2px',
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: '13px',
+                flexShrink: 0,
+              }}>
+                ✦
+              </div>
+            )}
             <div>
               <div style={{
                 fontWeight: 700,
                 fontSize: '14px',
                 color: '#000000',
                 letterSpacing: '-0.01em',
-                fontFamily: "'Playfair Display', Georgia, serif"
+                fontFamily: "'Playfair Display', Georgia, serif",
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '160px',
               }}>
-                ArtGallery
+                {footerConfig?.brand_name || 'ArtGallery'}
               </div>
               <div style={{ fontSize: '11px', color: '#71717a' }}>
                 Enterprise Portal
@@ -6034,7 +6107,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     type="email"
                     value={footerConfig.contact_email || ''}
                     onChange={(e) => setFooterConfig({ ...footerConfig, contact_email: e.target.value })}
-                    placeholder="hello@shopbypriya.com"
+                    placeholder="hello@gmail.com"
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -6431,7 +6504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                           marginBottom: '4px',
                           lineHeight: 1.15,
                         }}>
-                          {footerConfig.brand_name || 'shopbypriya'}
+                          {footerConfig.brand_name || ''}
                         </div>
 
                         {footerConfig.brand_subtitle && (
@@ -6602,6 +6675,445 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                 >
                   <RefreshCw size={13} /> Refresh Data
                 </button>
+              </div>
+
+              {/* STORE BRANDING & LOGO SECTION */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '2px',
+                padding: '24px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#000000', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                      <Store size={18} color="#000000" /> Store Branding &amp; Official Logo
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                      Upload your official store logo and customize brand identity displayed on the storefront header, navigation bar, and footer.
+                    </p>
+                  </div>
+                </div>
+
+                {storeBrandingSuccessMsg && (
+                  <div style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    color: '#15803d',
+                    borderRadius: '2px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    <ShieldCheck size={16} color="#15803d" /> {storeBrandingSuccessMsg}
+                  </div>
+                )}
+
+                {storeBrandingErrorMsg && (
+                  <div style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    color: '#b91c1c',
+                    borderRadius: '2px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    marginBottom: '18px',
+                  }}>
+                    {storeBrandingErrorMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveStoreBranding}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {/* Column 1: Logo Upload & Image Preview */}
+                    <div>
+                      <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', display: 'block', marginBottom: '8px' }}>
+                        Store Logo Image
+                      </label>
+
+                      {/* Logo Preview & Upload Box */}
+                      <div style={{
+                        border: '2px dashed #d1d5db',
+                        borderRadius: '4px',
+                        padding: '20px',
+                        backgroundColor: '#fafafa',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        minHeight: '140px',
+                        position: 'relative',
+                        transition: 'border-color 0.2s ease',
+                      }}>
+                        {footerConfig.brand_logo_url ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' }}>
+                            <div style={{
+                              padding: '12px 20px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '4px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                              maxWidth: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              <img
+                                src={footerConfig.brand_logo_url}
+                                alt={footerConfig.brand_name || 'Store Logo'}
+                                style={{
+                                  maxHeight: '60px',
+                                  maxWidth: '220px',
+                                  objectFit: 'contain',
+                                  display: 'block',
+                                }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <label
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 14px',
+                                  backgroundColor: '#000000',
+                                  color: '#ffffff',
+                                  borderRadius: '2px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                {uploadingLogo ? (
+                                  <>
+                                    <RefreshCw size={12} className="animate-spin" /> Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload size={12} /> Replace Logo
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                                  onChange={handleLogoFileUpload}
+                                  disabled={uploadingLogo}
+                                  style={{ display: 'none' }}
+                                />
+                              </label>
+
+                              <button
+                                type="button"
+                                onClick={handleRemoveLogo}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 12px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#dc2626',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: '2px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Trash2 size={12} /> Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: uploadingLogo ? 'not-allowed' : 'pointer',
+                              width: '100%',
+                              padding: '16px 0',
+                            }}
+                          >
+                            <div style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              backgroundColor: '#f4f4f5',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#52525b',
+                              marginBottom: '8px',
+                            }}>
+                              {uploadingLogo ? <RefreshCw size={20} className="animate-spin" /> : <Upload size={20} />}
+                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#09090b' }}>
+                              {uploadingLogo ? 'Uploading logo...' : 'Click to Upload Store Logo'}
+                            </span>
+                            <span style={{ fontSize: '11.5px', color: '#71717a', marginTop: '2px' }}>
+                              PNG, SVG, JPG, WebP (Transparent background recommended)
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                              onChange={handleLogoFileUpload}
+                              disabled={uploadingLogo}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Direct URL input fallback */}
+                      <div style={{ marginTop: '12px' }}>
+                        <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                          Or Direct Image / CDN URL:
+                        </label>
+                        <input
+                          type="text"
+                          value={footerConfig.brand_logo_url || ''}
+                          onChange={(e) => setFooterConfig({ ...footerConfig, brand_logo_url: e.target.value })}
+                          placeholder="https://example.com/logo.png"
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: '2px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '12px',
+                            boxSizing: 'border-box',
+                            color: '#09090b',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Column 2: Brand Name, Subtitle & Live Storefront Preview */}
+                    <div>
+                      <div style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                          Store / Brand Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={footerConfig.brand_name || ''}
+                          onChange={(e) => setFooterConfig({ ...footerConfig, brand_name: e.target.value })}
+                          placeholder="e.g. Artsgfg (leave blank to show only logo)"
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '2px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            boxSizing: 'border-box',
+                            color: '#09090b',
+                          }}
+                        />
+                        <span style={{ fontSize: '11px', color: '#71717a', marginTop: '3px', display: 'block' }}>
+                          Optional: If your uploaded logo already has text/brand name, you can leave this blank.
+                        </span>
+                      </div>
+
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', display: 'block', marginBottom: '6px' }}>
+                          Subtitle / Tagline (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={footerConfig.brand_subtitle || ''}
+                          onChange={(e) => setFooterConfig({ ...footerConfig, brand_subtitle: e.target.value })}
+                          placeholder="e.g. DESIGNDFG"
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '2px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            boxSizing: 'border-box',
+                            color: '#09090b',
+                          }}
+                        />
+                      </div>
+
+                      {/* Logo Width Customizer */}
+                      <div style={{ marginBottom: '16px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                            Logo Width: <span style={{ color: '#000000', fontWeight: 800 }}>{footerConfig.social_links?.logo_width || 240}px</span>
+                          </label>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {[180, 220, 260, 300].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setFooterConfig({
+                                  ...footerConfig,
+                                  social_links: { ...(footerConfig.social_links || {}), logo_width: preset }
+                                })}
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  borderRadius: '2px',
+                                  border: '1px solid #cbd5e1',
+                                  backgroundColor: (footerConfig.social_links?.logo_width || 240) === preset ? '#000000' : '#ffffff',
+                                  color: (footerConfig.social_links?.logo_width || 240) === preset ? '#ffffff' : '#334155',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {preset}px
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min="140"
+                          max="380"
+                          step="10"
+                          value={footerConfig.social_links?.logo_width || 240}
+                          onChange={(e) => setFooterConfig({
+                            ...footerConfig,
+                            social_links: { ...(footerConfig.social_links || {}), logo_width: Number(e.target.value) }
+                          })}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#000000' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                          <span>140px (Compact)</span>
+                          <span>240px (Default)</span>
+                          <span>380px (Extra Wide)</span>
+                        </div>
+                      </div>
+
+                      {/* Live Storefront Navbar Header Preview */}
+                      <div>
+                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                          Live Storefront Navbar Preview
+                        </span>
+                        <div style={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '4px',
+                          padding: '14px 18px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          minHeight: '64px',
+                        }}>
+                          {footerConfig.brand_logo_url ? (
+                            <img
+                              src={footerConfig.brand_logo_url}
+                              alt={footerConfig.brand_name || 'Logo'}
+                              style={{
+                                height: 'auto',
+                                maxHeight: '56px',
+                                width: (footerConfig.brand_name || footerConfig.brand_subtitle)
+                                  ? 'auto'
+                                  : `${footerConfig.social_links?.logo_width || 240}px`,
+                                maxWidth: (footerConfig.brand_name || footerConfig.brand_subtitle)
+                                  ? `${Math.max(160, Number(footerConfig.social_links?.logo_width) || 200)}px`
+                                  : `${Math.max(280, Number(footerConfig.social_links?.logo_width) || 280)}px`,
+                                objectFit: 'contain',
+                                borderRadius: '4px',
+                                display: 'block',
+                                flexShrink: 0,
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '8px',
+                              backgroundColor: '#1b3b2b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              boxShadow: '0 2px 6px rgba(27, 59, 43, 0.25)',
+                              flexShrink: 0,
+                            }}>
+                              <ShoppingBag size={18} strokeWidth={2.2} />
+                            </div>
+                          )}
+
+                          {/* Only render text if brand name or subtitle is provided, or if no logo is uploaded */}
+                          {(footerConfig.brand_name || footerConfig.brand_subtitle || !footerConfig.brand_logo_url) && (
+                            <div style={{ minWidth: 0 }}>
+                              {(footerConfig.brand_name || !footerConfig.brand_logo_url) && (
+                                <div style={{
+                                  fontSize: '18px',
+                                  fontWeight: 800,
+                                  letterSpacing: '-0.02em',
+                                  color: '#111827',
+                                  lineHeight: 1.1,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}>
+                                  {footerConfig.brand_name || 'Your Brand Name'}
+                                </div>
+                              )}
+                              {footerConfig.brand_subtitle && (
+                                <div style={{
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  color: '#6b7280',
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  marginTop: '2px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}>
+                                  {footerConfig.brand_subtitle}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '20px', borderTop: '1px solid #f4f4f5', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="submit"
+                      disabled={isSavingBranding || uploadingLogo}
+                      style={{
+                        padding: '9px 20px',
+                        backgroundColor: '#000000',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '2px',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        cursor: (isSavingBranding || uploadingLogo) ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      {isSavingBranding ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" /> Saving Store Branding...
+                        </>
+                      ) : (
+                        <>
+                          <Store size={13} /> Save Store Branding &amp; Logo
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
 
               {/* 2-Column Grid: Admin Profile Details & Password Reset */}

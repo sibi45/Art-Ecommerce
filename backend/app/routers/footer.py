@@ -38,9 +38,10 @@ def get_or_create_footer_config(db: Session) -> FooterConfig:
     config = db.query(FooterConfig).first()
     if not config:
         config = FooterConfig(
-            brand_name="shopbypriya",
-            brand_subtitle="HANDCRAFTED SILK & READY-TO-SHIP BLOUSES",
-            brand_description="Atelier blouses for sarees. Ready-made and made to measure.",
+            brand_name="",
+            brand_subtitle="",
+            brand_logo_url="",
+            brand_description="Original Fine Art, Curated Paintings & Bespoke Framing.",
             studio_location="Studio: Mumbai & Chennai, India",
             payment_image_url="https://preview.colorlib.com/theme/malefashion/img/payment.png",
             show_payment_methods=False,
@@ -54,29 +55,18 @@ def get_or_create_footer_config(db: Session) -> FooterConfig:
             newsletter_placeholder="Your email",
             copyright_text="Copyright © 2026 All rights reserved | Art Gallery Curations & Studio",
             contact_phone="+91 98765 43210",
-            contact_email="hello@shopbypriya.com",
+            contact_email="support@artweb.com",
             social_links={
                 "instagram": "https://instagram.com",
                 "facebook": "https://facebook.com",
                 "twitter": "https://twitter.com",
-                "whatsapp": "+91 98765 43210"
+                "whatsapp": "+91 98765 43210",
+                "logo_width": 240
             }
         )
         db.add(config)
         db.commit()
         db.refresh(config)
-    else:
-        # If existing config still has old brand, update to new design
-        if config.brand_name == "Art Gallery" or not config.brand_subtitle:
-            config.brand_name = "shopbypriya"
-            config.brand_subtitle = "HANDCRAFTED SILK & READY-TO-SHIP BLOUSES"
-            config.brand_description = "Atelier blouses for sarees. Ready-made and made to measure."
-            config.studio_location = "Studio: Mumbai & Chennai, India"
-            config.contact_phone = "+91 98765 43210"
-            config.contact_email = "hello@shopbypriya.com"
-            config.show_payment_methods = False
-            db.commit()
-            db.refresh(config)
     return config
 
 

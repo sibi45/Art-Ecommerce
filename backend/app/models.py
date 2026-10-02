@@ -150,9 +150,10 @@ class FooterConfig(Base):
     __tablename__ = "footer_config"
 
     id = Column(Integer, primary_key=True, index=True)
-    brand_name = Column(String(120), default="shopbypriya", nullable=False)
-    brand_subtitle = Column(String(200), default="HANDCRAFTED SILK & READY-TO-SHIP BLOUSES", nullable=True)
-    brand_description = Column(Text, default="Atelier blouses for sarees. Ready-made and made to measure.", nullable=False)
+    brand_name = Column(String(120), default="", nullable=True)
+    brand_subtitle = Column(String(200), default="", nullable=True)
+    brand_logo_url = Column(Text, nullable=True)
+    brand_description = Column(Text, default="Original Fine Art, Curated Paintings & Bespoke Framing.", nullable=False)
     studio_location = Column(String(200), default="Studio: Mumbai & Chennai, India", nullable=True)
     payment_image_url = Column(Text, default="https://preview.colorlib.com/theme/malefashion/img/payment.png", nullable=True)
     show_payment_methods = Column(Boolean, default=False)
@@ -173,7 +174,7 @@ class FooterConfig(Base):
     copyright_text = Column(String(255), default="Copyright © 2026 All rights reserved | Art Gallery Curations & Studio", nullable=False)
 
     contact_phone = Column(String(60), default="+91 98765 43210", nullable=True)
-    contact_email = Column(String(120), default="hello@shopbypriya.com", nullable=True)
+    contact_email = Column(String(120), default="support@artweb.com", nullable=True)
     social_links = Column(JSON, default=dict, nullable=True)
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

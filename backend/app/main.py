@@ -67,6 +67,7 @@ def init_db_and_seed():
                 );
                 ALTER TABLE footer_config ADD COLUMN IF NOT EXISTS brand_subtitle VARCHAR(200);
                 ALTER TABLE footer_config ADD COLUMN IF NOT EXISTS studio_location VARCHAR(200);
+                ALTER TABLE footer_config ADD COLUMN IF NOT EXISTS brand_logo_url TEXT;
                 ALTER TABLE product_sections ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);
 
                 CREATE TABLE IF NOT EXISTS showcase_items (

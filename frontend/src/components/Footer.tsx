@@ -95,18 +95,35 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Brand Column */}
         <div style={{ maxWidth: '280px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              backgroundColor: '#1b3b2b',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff'
-            }}>
-              <ShoppingBag size={18} />
-            </div>
+            {footerConfig?.brand_logo_url ? (
+              <img
+                src={footerConfig.brand_logo_url}
+                alt={brandName || 'Brand Logo'}
+                style={{
+                  height: '36px',
+                  maxHeight: '40px',
+                  maxWidth: '120px',
+                  objectFit: 'contain',
+                  borderRadius: '6px',
+                  display: 'block',
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '32px',
+                height: '32px',
+                backgroundColor: '#1b3b2b',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                flexShrink: 0,
+              }}>
+                <ShoppingBag size={18} />
+              </div>
+            )}
             <div>
               <div style={{
                 fontSize: '20px',
