@@ -6515,16 +6515,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                     }}>
                       {/* Col 1: Brand */}
                       <div>
-                        <div style={{
-                          fontSize: '20px',
-                          fontWeight: 800,
-                          color: '#111827',
-                          letterSpacing: '-0.02em',
-                          marginBottom: '4px',
-                          lineHeight: 1.15,
-                        }}>
-                          {footerConfig.brand_name || ''}
-                        </div>
+                        {footerConfig.brand_logo_url && (
+                          <div style={{ marginBottom: '10px' }}>
+                            <img
+                              src={footerConfig.brand_logo_url}
+                              alt={footerConfig.brand_name || 'Logo'}
+                              style={{
+                                height: '42px',
+                                maxHeight: '48px',
+                                maxWidth: '220px',
+                                objectFit: 'contain',
+                                display: 'block',
+                                mixBlendMode: 'multiply',
+                              }}
+                            />
+                          </div>
+                        )}
+                        {footerConfig.brand_name && (
+                          <div style={{
+                            fontSize: '20px',
+                            fontWeight: 800,
+                            color: '#111827',
+                            letterSpacing: '-0.02em',
+                            marginBottom: '4px',
+                            lineHeight: 1.15,
+                          }}>
+                            {footerConfig.brand_name}
+                          </div>
+                        )}
 
                         {footerConfig.brand_subtitle && (
                           <div style={{
@@ -6792,6 +6810,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                   maxWidth: '340px',
                                   objectFit: 'contain',
                                   display: 'block',
+                                  mixBlendMode: 'multiply',
                                 }}
                               />
                             </div>
@@ -7120,6 +7139,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToStore })
                                 borderRadius: '2px',
                                 display: 'block',
                                 flexShrink: 0,
+                                mixBlendMode: 'multiply',
                               }}
                             />
                           ) : (

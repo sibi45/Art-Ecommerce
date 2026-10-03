@@ -94,19 +94,19 @@ export const Footer: React.FC<FooterProps> = ({
       }}>
         {/* Brand Column */}
         <div style={{ maxWidth: '280px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
             {footerConfig?.brand_logo_url ? (
               <img
                 src={footerConfig.brand_logo_url}
                 alt={brandName || 'Brand Logo'}
                 style={{
-                  height: '42px',
-                  maxHeight: '48px',
-                  maxWidth: '220px',
+                  height: '46px',
+                  maxHeight: '54px',
+                  maxWidth: '240px',
                   objectFit: 'contain',
-                  borderRadius: '2px',
                   display: 'block',
                   flexShrink: 0,
+                  mixBlendMode: 'multiply',
                 }}
               />
             ) : (
@@ -124,22 +124,26 @@ export const Footer: React.FC<FooterProps> = ({
                 <ShoppingBag size={18} />
               </div>
             )}
-            <div>
-              <div style={{
-                fontSize: '20px',
-                fontWeight: 800,
-                color: '#111827',
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
-              }}>
-                {brandName}
+            {(brandName || brandSubtitle) ? (
+              <div>
+                {brandName && (
+                  <div style={{
+                    fontSize: '20px',
+                    fontWeight: 800,
+                    color: '#111827',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1,
+                  }}>
+                    {brandName}
+                  </div>
+                )}
+                {brandSubtitle && (
+                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, letterSpacing: '0.02em', marginTop: '2px' }}>
+                    {brandSubtitle}
+                  </div>
+                )}
               </div>
-              {brandSubtitle && (
-                <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, letterSpacing: '0.02em', marginTop: '2px' }}>
-                  {brandSubtitle}
-                </div>
-              )}
-            </div>
+            ) : null}
           </div>
 
           <p style={{

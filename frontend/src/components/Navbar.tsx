@@ -169,6 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   borderRadius: '2px',
                   display: 'block',
                   flexShrink: 0,
+                  mixBlendMode: 'multiply',
                 }}
               />
             ) : (
